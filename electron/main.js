@@ -1,0 +1,1202 @@
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const Store = require('electron-store');
+
+// Converters
+const VideoConverter = require('./converters/video');
+const AudioConverter = require('./converters/audio');
+const ImageConverter = require('./converters/image');
+const DocumentConverter = require('./converters/document');
+const TranscriptionConverter = require('./converters/transcription');
+const ArchiveConverter = require('./converters/archive');
+const DependencyManager = require('./utils/dependencyManager');
+const LicenseManager = require('./license');
+
+const store = new Store();
+let mainWindow;
+let dependencyManager;
+let licenseManager;
+
+// Initialize converters
+const converters = {
+  video: new VideoConverter(),
+  audio: new AudioConverter(),
+  image: new ImageConverter(),
+  document: new DocumentConverter(),
+  transcription: new TranscriptionConverter(),
+  archive: new ArchiveConverter()
+};
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    titleBarStyle: 'hiddenInset',
+    frame: process.platform === 'darwin' ? false : true,
+    backgroundColor: '#1a1a2e',
+    show: false
+  });
+
+  // Load the app
+  const startUrl = process.env.ELECTRON_START_URL || `file://${path.join(__dirname, '../build/index.html')}`;
+  mainWindow.loadURL(startUrl);
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
+  // Open DevTools in development
+  if (process.env.ELECTRON_START_URL) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+app.whenReady().then(async () => {
+  // Register custom protocol for local files
+  protocol.registerFileProtocol('local-file', (request, callback) => {
+    const filePath = decodeURIComponent(request.url.replace('local-file://', ''));
+    callback({ path: filePath });
+  });
+
+  // Initialize dependency manager
+  dependencyManager = new DependencyManager();
+
+  // Initialize license manager
+  licenseManager = new LicenseManager();
+
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// ============ IPC HANDLERS ============
+
+// ============ LICENSE HANDLERS ============
+
+// Check license status
+ipcMain.handle('license:check', async () => {
+  return licenseManager.loadLicense();
+});
+
+// Activate license
+ipcMain.handle('license:activate', async (event, key) => {
+  return licenseManager.activateLicense(key);
+});
+
+// Get license info
+ipcMain.handle('license:getInfo', async () => {
+  return licenseManager.getLicenseInfo();
+});
+
+// Remove license (deactivate)
+ipcMain.handle('license:remove', async () => {
+  return licenseManager.removeLicense();
+});
+
+// ============ SYSTEM INFO HANDLERS ============
+const os = require('os');
+const crypto = require('crypto');
+
+// Get system info
+ipcMain.handle('system:getInfo', async () => {
+  const platform = process.platform;
+  let platformName = 'Unknown';
+
+  if (platform === 'win32') platformName = 'Windows';
+  else if (platform === 'darwin') platformName = 'macOS';
+  else if (platform === 'linux') platformName = 'Linux';
+
+  return {
+    platform: platformName,
+    osVersion: os.release(),
+    arch: process.arch,
+    hostname: os.hostname(),
+    username: os.userInfo().username,
+    screenResolution: 'N/A', // Renderer'dan alınacak
+    language: app.getLocale(),
+    cpuModel: os.cpus()[0]?.model || 'Unknown',
+    totalMemory: Math.round(os.totalmem() / (1024 * 1024 * 1024)) + ' GB'
+  };
+});
+
+// Get unique machine ID
+ipcMain.handle('system:getMachineId', async () => {
+  const machineInfo = `${os.hostname()}-${os.platform()}-${os.arch()}-${os.cpus()[0]?.model || ''}-${os.totalmem()}`;
+  const hash = crypto.createHash('sha256').update(machineInfo).digest('hex');
+  return hash.substring(0, 16).toUpperCase();
+});
+
+// ============ FILE DIALOG HANDLERS ============
+
+// File dialog handlers
+ipcMain.handle('dialog:openFile', async (event, options) => {
+  const defaultFilters = [
+    { name: 'All Files', extensions: ['*'] },
+    { name: 'Video', extensions: ['mp4', 'avi', 'mkv', 'mov', 'webm', 'wmv', 'flv'] },
+    { name: 'Audio', extensions: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
+    { name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff'] },
+    { name: 'Document', extensions: ['pdf', 'docx', 'doc', 'txt', 'html', 'md'] }
+  ];
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: options?.properties || ['openFile', 'multiSelections'],
+    filters: options?.filters || defaultFilters,
+    defaultPath: options?.defaultPath
+  });
+  return result;
+});
+
+ipcMain.handle('dialog:saveFile', async (event, options) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: options?.defaultPath,
+    filters: options?.filters || [
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+  return result;
+});
+
+ipcMain.handle('dialog:openDirectory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+  return result;
+});
+
+// Get file info
+// Read file as base64 for renderer process
+ipcMain.handle('file:readAsBuffer', async (event, filePath) => {
+  try {
+    const data = fs.readFileSync(filePath);
+    return { success: true, data: data.toString('base64') };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('file:getInfo', async (event, filePath) => {
+  try {
+    const stats = fs.statSync(filePath);
+    const ext = path.extname(filePath).toLowerCase().slice(1);
+
+    return {
+      path: filePath,
+      name: path.basename(filePath),
+      size: stats.size,
+      extension: ext,
+      type: getFileType(ext),
+      created: stats.birthtime,
+      modified: stats.mtime
+    };
+  } catch (error) {
+    throw new Error(`Failed to get file info: ${error.message}`);
+  }
+});
+
+// Merge images to single PDF
+ipcMain.handle('convert:mergeImagesToPdf', async (event, { files, outputPath }) => {
+  try {
+    const result = await converters.document.imagesToPdf(files, outputPath, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Merge images to PDF error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Merge multiple PDFs
+ipcMain.handle('pdf:merge', async (event, { files, outputPath, pageOrder }) => {
+  try {
+    const result = await converters.document.mergePdfs(files, outputPath, {
+      pageOrder,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF merge error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Split PDF into pages
+ipcMain.handle('pdf:split', async (event, { inputPath, outputDir, pageRange }) => {
+  try {
+    const result = await converters.document.splitPdf(inputPath, outputDir, {
+      pageRange,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPaths: result.outputPaths };
+  } catch (error) {
+    console.error('PDF split error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add watermark to PDF
+ipcMain.handle('pdf:watermark', async (event, { inputPath, outputPath, options }) => {
+  try {
+    const result = await converters.document.addWatermark(inputPath, outputPath, {
+      ...options,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF watermark error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Professional PDF Watermark
+ipcMain.handle('pdf:watermarkPro', async (event, params) => {
+  try {
+    const result = await converters.document.watermarkPro(params.inputPath, params.outputPath, {
+      type: params.type,
+      text: params.text,
+      fontFamily: params.fontFamily,
+      fontSize: params.fontSize,
+      fontColor: params.fontColor,
+      fontBold: params.fontBold,
+      fontItalic: params.fontItalic,
+      textShadow: params.textShadow,
+      shadowColor: params.shadowColor,
+      watermarkImagePath: params.watermarkImagePath,
+      watermarkScale: params.watermarkScale,
+      opacity: params.opacity,
+      position: params.position,
+      customX: params.customX,
+      customY: params.customY,
+      rotation: params.rotation,
+      marginX: params.marginX,
+      marginY: params.marginY,
+      tileMode: params.tileMode,
+      tileSpacingX: params.tileSpacingX,
+      tileSpacingY: params.tileSpacingY,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF watermark pro error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Compress PDF
+ipcMain.handle('pdf:compress', async (event, { inputPath, outputPath, quality }) => {
+  try {
+    const result = await converters.document.compressPdf(inputPath, outputPath, {
+      quality,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF compress error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Protect PDF with password
+ipcMain.handle('pdf:protect', async (event, { inputPath, outputPath, password }) => {
+  try {
+    const result = await converters.document.protectPdf(inputPath, outputPath, {
+      password,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF protect error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Unlock PDF
+ipcMain.handle('pdf:unlock', async (event, { inputPath, outputPath, password }) => {
+  try {
+    const result = await converters.document.unlockPdf(inputPath, outputPath, {
+      password,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF unlock error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Rotate PDF pages
+ipcMain.handle('pdf:rotate', async (event, { inputPath, outputPath, angle }) => {
+  try {
+    const result = await converters.document.rotatePdf(inputPath, outputPath, {
+      angle,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF rotate error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Remove pages from PDF
+ipcMain.handle('pdf:removePages', async (event, { inputPath, outputPath, pages }) => {
+  try {
+    const result = await converters.document.removePagesPdf(inputPath, outputPath, {
+      pages,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF remove pages error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Extract images from PDF
+ipcMain.handle('pdf:extractImages', async (event, { inputPath, outputDir }) => {
+  try {
+    const result = await converters.document.extractImagesPdf(inputPath, outputDir, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, imageCount: result.imageCount };
+  } catch (error) {
+    console.error('PDF extract images error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Extract pages from PDF
+ipcMain.handle('pdf:extractPages', async (event, { inputPath, outputPath, pages }) => {
+  try {
+    const result = await converters.document.extractPagesPdf(inputPath, outputPath, pages, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('PDF extract pages error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// PDF to Images (JPG/PNG)
+ipcMain.handle('pdf:toImages', async (event, { inputPath, outputDir, format, quality }) => {
+  try {
+    const result = await converters.document.pdfToImages(inputPath, outputDir, {
+      format,
+      quality,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputDir: result.outputDir, pageCount: result.pageCount };
+  } catch (error) {
+    console.error('PDF to images error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Save PDF page image rendered by frontend (cross-platform fallback)
+ipcMain.handle('pdf:savePageImage', async (event, { imageData, outputPath, format }) => {
+  try {
+    // imageData is base64 data URL
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Use sharp to save with proper format and quality
+    const sharp = require('sharp');
+
+    if (format === 'jpg' || format === 'jpeg') {
+      await sharp(buffer).jpeg({ quality: 90 }).toFile(outputPath);
+    } else {
+      await sharp(buffer).png().toFile(outputPath);
+    }
+
+    return { success: true, outputPath };
+  } catch (error) {
+    console.error('Save PDF page image error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Images to PDF
+ipcMain.handle('pdf:fromImages', async (event, { files, outputPath }) => {
+  try {
+    const result = await converters.document.imagesToPdf(files, outputPath, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Images to PDF error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// HTML to PDF
+ipcMain.handle('pdf:fromHtml', async (event, { inputPath, outputPath }) => {
+  try {
+    const result = await converters.document.htmlToPdf(inputPath, outputPath, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('HTML to PDF error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ VIDEO TOOLS ============
+
+// Compress Video
+ipcMain.handle('video:compress', async (event, { inputPath, outputPath, targetSizeMB, quality }) => {
+  try {
+    const result = await converters.video.compress(inputPath, outputPath, targetSizeMB, {
+      quality,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Video compress error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Trim Video
+ipcMain.handle('video:trim', async (event, { inputPath, outputPath, startTime, endTime }) => {
+  try {
+    const result = await converters.video.trim(inputPath, outputPath, startTime, endTime, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Video trim error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Crop Video
+ipcMain.handle('video:crop', async (event, { inputPath, outputPath, width, height, x, y }) => {
+  try {
+    const result = await converters.video.crop(inputPath, outputPath, { width, height, x: x || 0, y: y || 0 }, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Video crop error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Rotate Video
+ipcMain.handle('video:rotate', async (event, { inputPath, outputPath, angle }) => {
+  try {
+    const result = await converters.video.rotate(inputPath, outputPath, angle, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Video rotate error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Flip Video
+ipcMain.handle('video:flip', async (event, { inputPath, outputPath, horizontal, vertical }) => {
+  try {
+    const result = await converters.video.flip(inputPath, outputPath, { horizontal, vertical }, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Video flip error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Video Watermark
+ipcMain.handle('video:watermark', async (event, params) => {
+  try {
+    const result = await converters.video.watermark(params.inputPath, params.outputPath, {
+      type: params.type,
+      text: params.text,
+      fontFamily: params.fontFamily,
+      fontSize: params.fontSize,
+      fontColor: params.fontColor,
+      fontBold: params.fontBold,
+      fontItalic: params.fontItalic,
+      textShadow: params.textShadow,
+      shadowColor: params.shadowColor,
+      watermarkImagePath: params.watermarkImagePath,
+      watermarkScale: params.watermarkScale,
+      opacity: params.opacity,
+      position: params.position,
+      customX: params.customX,
+      customY: params.customY,
+      rotation: params.rotation,
+      marginX: params.marginX,
+      marginY: params.marginY,
+      tileMode: params.tileMode,
+      tileSpacingX: params.tileSpacingX,
+      tileSpacingY: params.tileSpacingY,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Video watermark error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Video to GIF
+ipcMain.handle('video:toGif', async (event, { inputPath, outputPath, startTime, duration, fps, width }) => {
+  try {
+    const result = await converters.video.toGif(inputPath, outputPath, {
+      startTime: startTime || 0,
+      duration: duration || 5,
+      fps: fps || 10,
+      width: width || 480,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Video to GIF error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ IMAGE TOOLS ============
+
+// Resize Image
+ipcMain.handle('image:resize', async (event, { inputPath, outputPath, width, height, fit }) => {
+  try {
+    const result = await converters.image.resize(inputPath, outputPath, width, height, {
+      fit: fit || 'inside',
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Image resize error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Compress Image
+ipcMain.handle('image:compress', async (event, { inputPath, outputPath, quality, targetSizeKB }) => {
+  try {
+    const result = await converters.image.compress(inputPath, outputPath, {
+      quality,
+      targetSizeKB,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Image compress error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Crop Image
+ipcMain.handle('image:crop', async (event, { inputPath, outputPath, left, top, width, height }) => {
+  try {
+    const result = await converters.image.crop(inputPath, outputPath, { left, top, width, height }, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Image crop error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Rotate Image
+ipcMain.handle('image:rotate', async (event, { inputPath, outputPath, angle }) => {
+  try {
+    const result = await converters.image.rotate(inputPath, outputPath, angle, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Image rotate error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Image Watermark
+ipcMain.handle('image:watermark', async (event, params) => {
+  try {
+    const result = await converters.image.watermark(params.inputPath, params.outputPath, {
+      type: params.type,
+      text: params.text,
+      fontFamily: params.fontFamily,
+      fontSize: params.fontSize,
+      fontColor: params.fontColor,
+      fontBold: params.fontBold,
+      fontItalic: params.fontItalic,
+      textShadow: params.textShadow,
+      shadowColor: params.shadowColor,
+      watermarkImagePath: params.watermarkImagePath,
+      watermarkScale: params.watermarkScale,
+      opacity: params.opacity,
+      position: params.position,
+      customX: params.customX,
+      customY: params.customY,
+      rotation: params.rotation,
+      marginX: params.marginX,
+      marginY: params.marginY,
+      tileMode: params.tileMode,
+      tileSpacingX: params.tileSpacingX,
+      tileSpacingY: params.tileSpacingY,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Image watermark error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ GIF TOOLS ============
+
+// Images to GIF
+ipcMain.handle('gif:fromImages', async (event, { files, outputPath, fps, width, delay }) => {
+  try {
+    const result = await converters.video.imagesToGif(files, outputPath, {
+      fps: fps || 10,
+      width: width || 480,
+      delay: delay || 100,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Images to GIF error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Compress GIF
+ipcMain.handle('gif:compress', async (event, { inputPath, outputPath, colors, quality }) => {
+  try {
+    const result = await converters.video.compressGif(inputPath, outputPath, {
+      colors: colors || 256,
+      quality: quality || 80,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('GIF compress error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// GIF to Video
+ipcMain.handle('gif:toVideo', async (event, { inputPath, outputPath }) => {
+  try {
+    const result = await converters.video.gifToVideo(inputPath, outputPath, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('GIF to video error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ AUDIO TOOLS ============
+
+// Compress Audio
+ipcMain.handle('audio:compress', async (event, { inputPath, outputPath, bitrate }) => {
+  try {
+    const result = await converters.audio.compress(inputPath, outputPath, {
+      bitrate: bitrate || 128,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Audio compress error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Trim Audio
+ipcMain.handle('audio:trim', async (event, { inputPath, outputPath, startTime, endTime }) => {
+  try {
+    const result = await converters.audio.trim(inputPath, outputPath, {
+      startTime,
+      endTime,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Audio trim error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Merge Audio
+ipcMain.handle('audio:merge', async (event, { files, outputPath }) => {
+  try {
+    const result = await converters.audio.merge(files, outputPath, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Audio merge error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ ARCHIVE TOOLS ============
+
+// Create archive
+ipcMain.handle('archive:create', async (event, { files, outputPath, format, level }) => {
+  try {
+    const result = await converters.archive.createArchive(files, outputPath, {
+      format: format || 'zip',
+      level: level || 'normal',
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Archive create error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Extract archive
+ipcMain.handle('archive:extract', async (event, { inputPath, outputDir }) => {
+  try {
+    const result = await converters.archive.extractArchive(inputPath, outputDir, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputDir: result.outputDir };
+  } catch (error) {
+    console.error('Archive extract error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ EBOOK TOOLS ============
+
+// Convert ebook
+ipcMain.handle('ebook:convert', async (event, { inputPath, outputPath, outputFormat }) => {
+  try {
+    // For ebook conversion, we use the document converter for basic formats
+    // Full EPUB/MOBI conversion would require calibre or similar
+    const result = await converters.document.convert(inputPath, outputPath, outputFormat, {
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('Ebook convert error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get image thumbnail as base64
+ipcMain.handle('file:getThumbnail', async (event, filePath) => {
+  try {
+    const ext = path.extname(filePath).toLowerCase().slice(1);
+    const imageExts = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff'];
+
+    if (!imageExts.includes(ext)) {
+      return null;
+    }
+
+    const data = fs.readFileSync(filePath);
+    const base64 = data.toString('base64');
+    const mimeType = ext === 'jpg' ? 'jpeg' : ext;
+    return `data:image/${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error('Thumbnail error:', error);
+    return null;
+  }
+});
+
+// Core conversion function (used by both single and batch conversion)
+async function performConversion(inputPath, outputPath, outputFormat, options, sendProgress = true) {
+  const inputExt = path.extname(inputPath).toLowerCase().slice(1);
+  const inputType = getFileType(inputExt);
+  const outputType = getFileType(outputFormat);
+
+  // Determine which converter to use
+  let converter;
+  let conversionType;
+
+  if (inputType === 'video' || outputType === 'video') {
+    if (outputFormat === 'txt' || outputFormat === 'srt' || outputFormat === 'vtt') {
+      converter = converters.transcription;
+      conversionType = 'transcription';
+    } else if (outputType === 'audio') {
+      converter = converters.audio;
+      conversionType = 'extract-audio';
+    } else {
+      converter = converters.video;
+      conversionType = 'video';
+    }
+  } else if (inputType === 'audio') {
+    if (outputFormat === 'txt' || outputFormat === 'srt' || outputFormat === 'vtt') {
+      converter = converters.transcription;
+      conversionType = 'transcription';
+    } else {
+      converter = converters.audio;
+      conversionType = 'audio';
+    }
+  } else if (inputType === 'image') {
+    if (outputFormat === 'pdf') {
+      converter = converters.document;
+      conversionType = 'image-to-pdf';
+    } else {
+      converter = converters.image;
+      conversionType = 'image';
+    }
+  } else if (inputType === 'document') {
+    // Check if converting PDF to image format
+    const imageFormats = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff'];
+    if (inputExt === 'pdf' && imageFormats.includes(outputFormat.toLowerCase())) {
+      // Use pdfToImages for PDF to image conversion
+      const outputDir = path.dirname(outputPath);
+      const result = await converters.document.pdfToImages(inputPath, outputDir, {
+        format: outputFormat,
+        quality: options?.quality || 90,
+        onProgress: sendProgress ? (progress) => {
+          mainWindow.webContents.send('convert:progress', { progress });
+        } : null
+      });
+      // Return the first output file or the directory
+      const firstOutput = result.outputPaths && result.outputPaths.length > 0 ? result.outputPaths[0] : outputDir;
+      return { success: true, outputPath: firstOutput, outputDir: result.outputDir, outputPaths: result.outputPaths };
+    }
+    converter = converters.document;
+    conversionType = 'document';
+  } else {
+    throw new Error(`Unsupported conversion: ${inputExt} to ${outputFormat}`);
+  }
+
+  // Send progress updates
+  const progressCallback = sendProgress ? (progress) => {
+    mainWindow.webContents.send('convert:progress', { progress });
+  } : null;
+
+  // Start conversion
+  const result = await converter.convert(inputPath, outputPath, outputFormat, {
+    ...options,
+    onProgress: progressCallback,
+    conversionType
+  });
+
+  return { success: true, outputPath: result.outputPath };
+}
+
+// Conversion handlers
+ipcMain.handle('convert:start', async (event, { inputPath, outputPath, outputFormat, options }) => {
+  try {
+    return await performConversion(inputPath, outputPath, outputFormat, options, true);
+  } catch (error) {
+    console.error('Conversion error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Batch conversion
+ipcMain.handle('convert:batch', async (event, { files, outputDir, outputFormat, options }) => {
+  console.log('============================================');
+  console.log('BATCH CONVERSION STARTED');
+  console.log('Files:', files.length);
+  console.log('Output dir:', outputDir);
+  console.log('Format:', outputFormat);
+  console.log('============================================');
+
+  const results = [];
+  const usedNames = new Set(); // Track used output names to avoid collisions
+
+  // Ensure output directory exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    let baseName = path.basename(file, path.extname(file))
+      .replace(/[()[\]{}]/g, '')
+      .replace(/\s+/g, '_');
+
+    // Ensure unique output name - add index if name already used
+    let outputName = baseName + '_converted.' + outputFormat;
+    let counter = 1;
+    while (usedNames.has(outputName.toLowerCase())) {
+      outputName = `${baseName}_converted_${counter}.${outputFormat}`;
+      counter++;
+    }
+    usedNames.add(outputName.toLowerCase());
+
+    const outputPath = path.join(outputDir, outputName);
+
+    console.log('--------------------------------------------');
+    console.log(`BATCH [${i + 1}/${files.length}]`);
+    console.log('Input:', file);
+    console.log('Output:', outputPath);
+
+    mainWindow.webContents.send('convert:batchProgress', {
+      current: i + 1,
+      total: files.length,
+      file: path.basename(file)
+    });
+
+    try {
+      const result = await performConversion(file, outputPath, outputFormat, options, false);
+
+      // Verify file was created
+      if (fs.existsSync(outputPath)) {
+        const stats = fs.statSync(outputPath);
+        console.log(`BATCH [${i + 1}/${files.length}] SUCCESS - Size: ${stats.size} bytes`);
+        results.push({ file, ...result });
+      } else {
+        console.error(`BATCH [${i + 1}/${files.length}] FAILED - Output file not found`);
+        results.push({ file, success: false, error: 'Output file was not created' });
+      }
+
+      // Small delay between conversions to let file system sync
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+    } catch (error) {
+      console.error(`BATCH [${i + 1}/${files.length}] ERROR:`, error.message);
+      results.push({ file, success: false, error: error.message });
+    }
+  }
+
+  const successCount = results.filter(r => r.success).length;
+  console.log('============================================');
+  console.log(`BATCH CONVERSION COMPLETE: ${successCount}/${results.length} succeeded`);
+  console.log('============================================');
+
+  return results;
+});
+
+// Get supported formats
+ipcMain.handle('formats:getSupported', async (event, inputFormat) => {
+  const inputType = getFileType(inputFormat);
+  return getSupportedOutputFormats(inputType, inputFormat);
+});
+
+// Get all supported formats - all formats with cross-platform compatible codecs
+ipcMain.handle('formats:getAll', async () => {
+  return {
+    video: [
+      // All supported video output formats
+      'mp4', 'avi', 'mkv', 'mov', 'webm', 'wmv', 'flv', 'gif',
+      'm4v', '3gp', 'mpeg', 'mpg', 'ts', 'ogv'
+    ],
+    audio: [
+      // All supported audio output formats
+      'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma',
+      'opus', 'aiff', 'ac3', 'amr', 'caf', 'mp2', 'au'
+    ],
+    image: [
+      // Common formats
+      'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif',
+      // Extended formats (SVG via potrace for raster-to-vector)
+      'ico', 'avif', 'svg'
+    ],
+    document: [
+      'pdf', 'docx', 'doc', 'txt', 'html', 'htm', 'md',
+      'rtf', 'odt', 'epub', 'mobi', 'azw3'
+    ],
+    transcription: ['txt', 'srt', 'vtt']
+  };
+});
+
+// Dependency management
+ipcMain.handle('deps:check', async () => {
+  return await dependencyManager.checkDependencies();
+});
+
+ipcMain.handle('deps:install', async (event, depName) => {
+  const progressCallback = (progress, status) => {
+    mainWindow.webContents.send('deps:progress', { progress, status });
+  };
+  return await dependencyManager.installDependency(depName, progressCallback);
+});
+
+// Settings
+ipcMain.handle('settings:get', (event, key) => {
+  return store.get(key);
+});
+
+ipcMain.handle('settings:set', (event, key, value) => {
+  store.set(key, value);
+  return true;
+});
+
+// Shell operations
+ipcMain.handle('shell:openPath', async (event, filePath) => {
+  return await shell.openPath(filePath);
+});
+
+ipcMain.handle('shell:showItemInFolder', (event, filePath) => {
+  shell.showItemInFolder(filePath);
+  return true;
+});
+
+// ============ HELPER FUNCTIONS ============
+
+function getFileType(extension) {
+  const ext = extension.toLowerCase();
+
+  const videoFormats = [
+    'mp4', 'avi', 'mkv', 'mov', 'webm', 'wmv', 'flv', 'm4v', '3gp',
+    'm2ts', 'mts', 'mpeg', 'mpg', 'vob', 'ts', 'mxf', 'mod', 'qt',
+    'rm', 'rmvb', 'asf', '3g2', 'mpv', 'wtv', 'divx', 'xvid',
+    'm1v', 'f4p', 'f4v', 'ogv', 'dv', 'swf', '3gpp', 'dvr-ms'
+  ];
+  const audioFormats = [
+    'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma', 'opus',
+    'aiff', 'aif', 'amr', 'alac', 'ape', 'au', 'caf', 'm4b',
+    'm4r', 'm4p', 'mid', 'midi', 'mka', 'mp2', 'oga', 'ra',
+    'raw', 'rmi', 'snd', 'tta', 'voc', 'wave', 'wv', '3ga',
+    'ac3', 'dts', 'aifc', 'mp1'
+  ];
+  const imageFormats = [
+    'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff', 'tif',
+    'ico', 'svg', 'heic', 'heif', 'avif', 'raw', 'cr2', 'nef',
+    'arw', 'dng', 'psd', 'jfif', 'jxl'
+  ];
+  const documentFormats = [
+    'pdf', 'docx', 'doc', 'txt', 'html', 'htm', 'md', 'rtf',
+    'odt', 'xlsx', 'xls', 'pptx', 'ppt', 'epub', 'mobi', 'azw3'
+  ];
+
+  if (videoFormats.includes(ext)) return 'video';
+  if (audioFormats.includes(ext)) return 'audio';
+  if (imageFormats.includes(ext)) return 'image';
+  if (documentFormats.includes(ext)) return 'document';
+
+  return 'unknown';
+}
+
+function getSupportedOutputFormats(inputType, inputFormat) {
+  // All supported formats with cross-platform compatible codecs
+  const formats = {
+    video: {
+      video: [
+        'mp4', 'avi', 'mkv', 'mov', 'webm', 'wmv', 'flv', 'gif',
+        'm4v', '3gp', 'mpeg', 'mpg', 'ts', 'ogv'
+      ],
+      audio: [
+        'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma',
+        'opus', 'aiff', 'ac3', 'amr', 'caf', 'mp2', 'au'
+      ],
+      transcription: ['txt', 'srt', 'vtt']
+    },
+    audio: {
+      audio: [
+        'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma',
+        'opus', 'aiff', 'ac3', 'amr', 'caf', 'mp2', 'au'
+      ],
+      transcription: ['txt', 'srt', 'vtt']
+    },
+    image: {
+      image: [
+        'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif',
+        'ico', 'avif', 'svg'
+      ],
+      document: ['pdf']
+    },
+    document: {
+      document: ['pdf', 'docx', 'txt', 'html', 'md', 'rtf'],
+      image: ['jpg', 'png'] // PDF to image
+    }
+  };
+
+  return formats[inputType] || {};
+}

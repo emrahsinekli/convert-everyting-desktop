@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Electron builder
+release/
+
+# Claude
+.claude/
+
+# Tools binaries (large files)
+tools/ffmpeg/
+tools/whisper/
+
+# Temporary files
+*.tmp
+temp/
