@@ -17,6 +17,11 @@
     "directories": {
       "output": "dist"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "emrahsinekli",
+      "repo": "convert-everyting-desktop"
+    },
     "files": [
       "build/**/*",
       "electron/**/*",
@@ -60,6 +65,7 @@
     "archiver": "^7.0.1",
     "docx": "^8.5.0",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.7.3",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
     "firebase": "^12.8.0",

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electr
 const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
+const { autoUpdater } = require('electron-updater');
 
 // Converters
 const VideoConverter = require('./converters/video');
@@ -17,6 +18,10 @@ const store = new Store();
 let mainWindow;
 let dependencyManager;
 let licenseManager;
+
+// Auto-updater configuration
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
 
 // Initialize converters
 const converters = {
@@ -77,6 +82,9 @@ app.whenReady().then(async () => {
   licenseManager = new LicenseManager();
 
   createWindow();
+
+  // Setup auto-updater events
+  setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1126,6 +1134,90 @@ ipcMain.handle('shell:openPath', async (event, filePath) => {
 ipcMain.handle('shell:showItemInFolder', (event, filePath) => {
   shell.showItemInFolder(filePath);
   return true;
+});
+
+// ============ AUTO-UPDATER ============
+
+function setupAutoUpdater() {
+  // Update available
+  autoUpdater.on('update-available', (info) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('updater:update-available', {
+        version: info.version,
+        releaseDate: info.releaseDate,
+        releaseNotes: info.releaseNotes
+      });
+    }
+  });
+
+  // No update available
+  autoUpdater.on('update-not-available', (info) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('updater:update-not-available', {
+        version: info.version
+      });
+    }
+  });
+
+  // Download progress
+  autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('updater:download-progress', {
+        percent: progressObj.percent,
+        bytesPerSecond: progressObj.bytesPerSecond,
+        transferred: progressObj.transferred,
+        total: progressObj.total
+      });
+    }
+  });
+
+  // Update downloaded
+  autoUpdater.on('update-downloaded', (info) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('updater:update-downloaded', {
+        version: info.version
+      });
+    }
+  });
+
+  // Error
+  autoUpdater.on('error', (error) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('updater:error', {
+        message: error.message
+      });
+    }
+  });
+}
+
+// Check for updates
+ipcMain.handle('updater:checkForUpdates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result?.updateInfo };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Download update
+ipcMain.handle('updater:downloadUpdate', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Install update (quit and install)
+ipcMain.handle('updater:quitAndInstall', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+// Get current app version
+ipcMain.handle('updater:getVersion', () => {
+  return app.getVersion();
 });
 
 // ============ HELPER FUNCTIONS ============

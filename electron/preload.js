@@ -123,5 +123,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onPdfToImagesRequest: (callback) => {
     ipcRenderer.on('pdf:renderRequest', (event, data) => callback(data));
   },
-  sendPdfRenderResult: (result) => ipcRenderer.send('pdf:renderResult', result)
+  sendPdfRenderResult: (result) => ipcRenderer.send('pdf:renderResult', result),
+
+  // Auto-updater operations
+  checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
+  downloadUpdate: () => ipcRenderer.invoke('updater:downloadUpdate'),
+  quitAndInstall: () => ipcRenderer.invoke('updater:quitAndInstall'),
+  getAppVersion: () => ipcRenderer.invoke('updater:getVersion'),
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on('updater:update-available', (event, data) => callback(data));
+  },
+  onUpdateNotAvailable: (callback) => {
+    ipcRenderer.on('updater:update-not-available', (event, data) => callback(data));
+  },
+  onDownloadProgress: (callback) => {
+    ipcRenderer.on('updater:download-progress', (event, data) => callback(data));
+  },
+  onUpdateDownloaded: (callback) => {
+    ipcRenderer.on('updater:update-downloaded', (event, data) => callback(data));
+  },
+  onUpdateError: (callback) => {
+    ipcRenderer.on('updater:error', (event, data) => callback(data));
+  },
+  removeUpdateListeners: () => {
+    ipcRenderer.removeAllListeners('updater:update-available');
+    ipcRenderer.removeAllListeners('updater:update-not-available');
+    ipcRenderer.removeAllListeners('updater:download-progress');
+    ipcRenderer.removeAllListeners('updater:update-downloaded');
+    ipcRenderer.removeAllListeners('updater:error');
+  }
 });
