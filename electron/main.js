@@ -11,6 +11,7 @@ const ImageConverter = require('./converters/image');
 const DocumentConverter = require('./converters/document');
 const TranscriptionConverter = require('./converters/transcription');
 const ArchiveConverter = require('./converters/archive');
+const TextToSpeechConverter = require('./converters/tts');
 const DependencyManager = require('./utils/dependencyManager');
 const LicenseManager = require('./license');
 
@@ -30,7 +31,8 @@ const converters = {
   image: new ImageConverter(),
   document: new DocumentConverter(),
   transcription: new TranscriptionConverter(),
-  archive: new ArchiveConverter()
+  archive: new ArchiveConverter(),
+  tts: new TextToSpeechConverter()
 };
 
 function createWindow() {
@@ -489,13 +491,37 @@ ipcMain.handle('pdf:fromImages', async (event, { files, outputPath }) => {
 });
 
 // HTML to PDF
-ipcMain.handle('pdf:fromHtml', async (event, { inputPath, outputPath }) => {
+ipcMain.handle('pdf:fromHtml', async (event, { inputPath, outputPath, html }) => {
   try {
-    const result = await converters.document.htmlToPdf(inputPath, outputPath, {
+    let htmlFilePath = inputPath;
+
+    // If raw HTML content is provided instead of a file path, write to temp file
+    if (html && !inputPath) {
+      const tempDir = app.getPath('temp');
+      htmlFilePath = path.join(tempDir, `convert-temp-${Date.now()}.html`);
+      const fullHtml = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+h1,h2,h3,h4,h5,h6 { margin-top: 1em; }
+pre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; }
+code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 16px; color: #555; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+</style></head><body>${html}</body></html>`;
+      fs.writeFileSync(htmlFilePath, fullHtml, 'utf-8');
+    }
+
+    const result = await converters.document.htmlToPdf(htmlFilePath, outputPath, {
       onProgress: (progress) => {
         mainWindow.webContents.send('convert:progress', { progress });
       }
     });
+
+    // Clean up temp file if we created one
+    if (html && !inputPath) {
+      try { fs.unlinkSync(htmlFilePath); } catch (e) {}
+    }
+
     return { success: true, outputPath: result.outputPath };
   } catch (error) {
     console.error('HTML to PDF error:', error);
@@ -736,6 +762,119 @@ ipcMain.handle('image:watermark', async (event, params) => {
     return { success: false, error: error.message };
   }
 });
+
+// Icon Converter - creates separate files for each size
+ipcMain.handle('image:convertIcon', async (event, { inputPath, outputDir, outputFormat, sizes }) => {
+  try {
+    const sharp = require('sharp');
+    const createdFiles = [];
+
+    // Ensure output directory exists
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Get base name from input file
+    const baseName = path.basename(inputPath, path.extname(inputPath));
+
+    for (const size of sizes) {
+      const fileName = `${baseName}-${size}.${outputFormat}`;
+      const outputPath = path.join(outputDir, fileName);
+
+      // Resize image to the specified size
+      const resizedBuffer = await sharp(inputPath)
+        .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+
+      if (outputFormat === 'ico') {
+        // Create single-size ICO file
+        const icoBuffer = createSingleSizeIco(resizedBuffer, size);
+        fs.writeFileSync(outputPath, icoBuffer);
+      } else if (outputFormat === 'icns') {
+        // Create single-size ICNS file
+        const icnsBuffer = createSingleSizeIcns(resizedBuffer, size);
+        fs.writeFileSync(outputPath, icnsBuffer);
+      } else {
+        // Just save as PNG
+        fs.writeFileSync(outputPath, resizedBuffer);
+      }
+
+      createdFiles.push(fileName);
+    }
+
+    return { success: true, fileCount: createdFiles.length, files: createdFiles };
+  } catch (error) {
+    console.error('Icon convert error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Helper function to create single-size ICO
+function createSingleSizeIco(pngBuffer, size) {
+  const headerSize = 6;
+  const dirEntrySize = 16;
+  const dataOffset = headerSize + dirEntrySize;
+  const totalSize = dataOffset + pngBuffer.length;
+
+  const buffer = Buffer.alloc(totalSize);
+
+  // Write header
+  buffer.writeUInt16LE(0, 0); // Reserved
+  buffer.writeUInt16LE(1, 2); // Type: 1 = ICO
+  buffer.writeUInt16LE(1, 4); // Number of images
+
+  // Write directory entry
+  buffer.writeUInt8(size < 256 ? size : 0, headerSize); // Width
+  buffer.writeUInt8(size < 256 ? size : 0, headerSize + 1); // Height
+  buffer.writeUInt8(0, headerSize + 2); // Color palette
+  buffer.writeUInt8(0, headerSize + 3); // Reserved
+  buffer.writeUInt16LE(1, headerSize + 4); // Color planes
+  buffer.writeUInt16LE(32, headerSize + 6); // Bits per pixel
+  buffer.writeUInt32LE(pngBuffer.length, headerSize + 8); // Image size
+  buffer.writeUInt32LE(dataOffset, headerSize + 12); // Image offset
+
+  // Write image data
+  pngBuffer.copy(buffer, dataOffset);
+
+  return buffer;
+}
+
+// Helper function to create single-size ICNS
+function createSingleSizeIcns(pngBuffer, size) {
+  const icnsTypes = {
+    16: 'icp4',
+    32: 'icp5',
+    64: 'icp6',
+    128: 'ic07',
+    256: 'ic08',
+    512: 'ic09',
+    1024: 'ic10'
+  };
+
+  const type = icnsTypes[size] || 'ic08';
+  const totalSize = 8 + 8 + pngBuffer.length; // header + image header + data
+
+  const buffer = Buffer.alloc(totalSize);
+  let offset = 0;
+
+  // Write ICNS header
+  buffer.write('icns', offset);
+  offset += 4;
+  buffer.writeUInt32BE(totalSize, offset);
+  offset += 4;
+
+  // Write image type and size
+  buffer.write(type, offset);
+  offset += 4;
+  buffer.writeUInt32BE(8 + pngBuffer.length, offset);
+  offset += 4;
+
+  // Write PNG data
+  pngBuffer.copy(buffer, offset);
+
+  return buffer;
+}
 
 // ============ GIF TOOLS ============
 
@@ -988,8 +1127,16 @@ async function performConversion(inputPath, outputPath, outputFormat, options, s
 }
 
 // Conversion handlers
-ipcMain.handle('convert:start', async (event, { inputPath, outputPath, outputFormat, options }) => {
+ipcMain.handle('convert:start', async (event, params) => {
   try {
+    const { inputPath, outputPath, outputFormat, type, sizes, ...restOptions } = params;
+
+    // Build options object including type-specific parameters
+    const options = {
+      ...restOptions,
+      ...(sizes && { sizes })
+    };
+
     return await performConversion(inputPath, outputPath, outputFormat, options, true);
   } catch (error) {
     console.error('Conversion error:', error);
@@ -1293,3 +1440,52 @@ function getSupportedOutputFormats(inputType, inputFormat) {
 
   return formats[inputType] || {};
 }
+
+// ==================== TTS (Text-to-Speech) ====================
+
+ipcMain.handle('tts:getVoices', async () => {
+  try {
+    return {
+      success: true,
+      voices: converters.tts.getVoices(),
+      voicesByLanguage: converters.tts.getVoicesByLanguage()
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('tts:convert', async (event, { text, outputPath, voice, rate, pitch, volume }) => {
+  try {
+    const result = await converters.tts.convert(text, outputPath, {
+      voice,
+      rate,
+      pitch,
+      volume,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    console.error('TTS error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('tts:convertFile', async (event, { inputPath, outputPath, voice, rate, pitch, volume }) => {
+  try {
+    const result = await converters.tts.convertFile(inputPath, outputPath, {
+      voice,
+      rate,
+      pitch,
+      volume,
+      onProgress: (progress) => {
+        mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, outputPath: result.outputPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

@@ -18,6 +18,20 @@ import LicenseActivation from './components/LicenseActivation';
 import { convertPdfToImages } from './utils/pdfRenderer';
 import licenseService from './firebase/licenseService';
 
+// Utility Panels
+import UnitConverterPanel from './components/UnitConverterPanel';
+import ColorConverterPanel from './components/ColorConverterPanel';
+import TextConverterPanel from './components/TextConverterPanel';
+import EncodingConverterPanel from './components/EncodingConverterPanel';
+import NumberBaseConverterPanel from './components/NumberBaseConverterPanel';
+import TimestampConverterPanel from './components/TimestampConverterPanel';
+import DataConverterPanel from './components/DataConverterPanel';
+import SubtitleConverterPanel from './components/SubtitleConverterPanel';
+import IconConverterPanel from './components/IconConverterPanel';
+import MarkdownConverterPanel from './components/MarkdownConverterPanel';
+import FontConverterPanel from './components/FontConverterPanel';
+import HtmlBeautifierPanel from './components/HtmlBeautifierPanel';
+
 function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [selectedFormat, setSelectedFormat] = useState(null);
@@ -624,6 +638,20 @@ function App() {
               }}
             />
           )}
+
+          {/* UTILITIES MODULE */}
+          {activeTab === 'util-unit' && <UnitConverterPanel />}
+          {activeTab === 'util-color' && <ColorConverterPanel />}
+          {activeTab === 'util-text' && <TextConverterPanel />}
+          {activeTab === 'util-encoding' && <EncodingConverterPanel />}
+          {activeTab === 'util-number' && <NumberBaseConverterPanel />}
+          {activeTab === 'util-timestamp' && <TimestampConverterPanel />}
+          {activeTab === 'util-data' && <DataConverterPanel />}
+          {activeTab === 'util-subtitle' && <SubtitleConverterPanel />}
+          {activeTab === 'util-icon' && <IconConverterPanel />}
+          {activeTab === 'util-markdown' && <MarkdownConverterPanel />}
+          {activeTab === 'util-font' && <FontConverterPanel />}
+          {activeTab === 'util-html' && <HtmlBeautifierPanel />}
         </main>
       </div>
 

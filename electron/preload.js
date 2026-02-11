@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cropImage: (params) => ipcRenderer.invoke('image:crop', params),
   rotateImage: (params) => ipcRenderer.invoke('image:rotate', params),
   watermarkImage: (params) => ipcRenderer.invoke('image:watermark', params),
+  convertIcon: (params) => ipcRenderer.invoke('image:convertIcon', params),
 
   // Audio tools
   compressAudio: (params) => ipcRenderer.invoke('audio:compress', params),
@@ -72,6 +73,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Ebook tools
   convertEbook: (params) => ipcRenderer.invoke('ebook:convert', params),
+
+  // Text-to-Speech tools
+  ttsGetVoices: () => ipcRenderer.invoke('tts:getVoices'),
+  ttsConvert: (params) => ipcRenderer.invoke('tts:convert', params),
+  ttsConvertFile: (params) => ipcRenderer.invoke('tts:convertFile', params),
+
   onProgress: (callback) => {
     ipcRenderer.on('convert:progress', (event, data) => callback(data));
   },

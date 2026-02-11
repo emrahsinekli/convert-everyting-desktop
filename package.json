@@ -11,9 +11,11 @@
     "electron-build": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
+  "author": "Emrah Sinekli <emrahsinekli@gmail.com>",
   "build": {
     "appId": "com.converteverything.app",
     "productName": "Convert Everything",
+    "extends": null,
     "directories": {
       "output": "dist"
     },
@@ -25,7 +27,32 @@
     "files": [
       "build/**/*",
       "electron/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "package.json",
+      "!node_modules/ffprobe-static/bin/darwin",
+      "!node_modules/ffprobe-static/bin/linux",
+      "!node_modules/@firebase/**/esm",
+      "!node_modules/@firebase/**/dist/esm",
+      "!node_modules/firebase/**/esm",
+      "!node_modules/firebase/**/dist/esm",
+      "!node_modules/**/*.map",
+      "!node_modules/**/*.md",
+      "!node_modules/**/*.ts",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/LICENSE*",
+      "!node_modules/**/README*",
+      "!node_modules/**/test/**",
+      "!node_modules/**/tests/**",
+      "!node_modules/**/__tests__/**",
+      "!node_modules/**/example/**",
+      "!node_modules/**/examples/**",
+      "!node_modules/**/docs/**"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**",
+      "node_modules/ffprobe-static/**",
+      "node_modules/sharp/**"
     ],
     "extraResources": [
       {
@@ -38,10 +65,10 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
-      "icon": "public/icon.ico"
+      "icon": "public/icon.ico",
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": [
@@ -70,6 +97,7 @@
     "ffprobe-static": "^3.1.0",
     "firebase": "^12.8.0",
     "fluent-ffmpeg": "^2.1.2",
+    "form-data": "^4.0.5",
     "heic-convert": "^2.1.0",
     "mammoth": "^1.6.0",
     "pdf-lib": "^1.17.1",
@@ -93,6 +121,7 @@
     "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "firebase-admin": "^13.6.0",
+    "png-to-ico": "^3.0.1",
     "wait-on": "^7.2.0"
   },
   "homepage": "./",

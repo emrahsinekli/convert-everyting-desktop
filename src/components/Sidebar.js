@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
   const [expandedModules, setExpandedModules] = useState({
     convert: true,
-    tools: false
+    tools: false,
+    utilities: false
   });
 
   const toggleModule = (moduleId) => {
@@ -50,6 +51,32 @@ function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
         { id: 'tools-audio', label: 'Audio Tools', icon: '🎵' },
         { id: 'tools-gif', label: 'GIF Tools', icon: '🎞️' },
         { id: 'tools-pdf', label: 'PDF Tools', icon: '📄' }
+      ]
+    },
+    {
+      id: 'utilities',
+      label: 'Utilities',
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+        </svg>
+      ),
+      items: [
+        { id: 'util-unit', label: 'Unit Converter', icon: '📏' },
+        { id: 'util-color', label: 'Color Converter', icon: '🎨' },
+        { id: 'util-text', label: 'Text Converter', icon: '🔤' },
+        { id: 'util-encoding', label: 'Encoding Tools', icon: '🔐' },
+        { id: 'util-number', label: 'Number Base', icon: '🔢' },
+        { id: 'util-timestamp', label: 'Timestamp', icon: '⏰' },
+        { id: 'util-data', label: 'Data Converter', icon: '📊' },
+        { id: 'util-subtitle', label: 'Subtitle Converter', icon: '💬' },
+        { id: 'util-icon', label: 'Icon Converter', icon: '🖼️' },
+        { id: 'util-markdown', label: 'Markdown Converter', icon: '📝' },
+        { id: 'util-font', label: 'Font Converter', icon: '🔠' },
+        { id: 'util-html', label: 'HTML Beautifier', icon: '🌐' }
       ]
     }
   ];

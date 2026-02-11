@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import licenseService from '../firebase/licenseService';
+import logo from '../assets/logo.png';
 import './LicenseActivation.css';
 
 function LicenseActivation({ onActivated }) {
@@ -68,7 +69,7 @@ function LicenseActivation({ onActivated }) {
       <div className="license-activation-modal">
         <div className="license-header">
           <div className="license-logo">
-            <span className="logo-icon">CE</span>
+            <img src={logo} alt="Convert Everything" className="license-logo-image" />
           </div>
           <h1>Convert Everything</h1>
           <p className="license-subtitle">License Activation</p>

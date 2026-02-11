@@ -1,0 +1,248 @@
+.html-beautifier-panel {
+  padding: 24px;
+  overflow-y: auto;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.html-beautifier-panel .panel-header {
+  margin-bottom: 24px;
+}
+
+.html-beautifier-panel .panel-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+}
+
+.html-beautifier-panel .panel-header p {
+  color: #a0a0b0;
+  font-size: 14px;
+  margin: 0;
+}
+
+.html-beautifier-panel .html-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Mode Section */
+.html-beautifier-panel .mode-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.html-beautifier-panel .mode-tabs {
+  display: flex;
+  gap: 4px;
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.html-beautifier-panel .mode-tab {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #a0a0b0;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.html-beautifier-panel .mode-tab:hover {
+  color: #ffffff;
+  background: #252540;
+}
+
+.html-beautifier-panel .mode-tab.active {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.html-beautifier-panel .mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.html-beautifier-panel .indent-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.html-beautifier-panel .indent-selector label {
+  font-size: 13px;
+  color: #a0a0b0;
+}
+
+.html-beautifier-panel .indent-selector select {
+  padding: 6px 10px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.html-beautifier-panel .indent-selector select:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+/* Toolbar */
+.html-beautifier-panel .toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.html-beautifier-panel .toolbar-btn {
+  padding: 8px 16px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  color: #a0a0b0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.html-beautifier-panel .toolbar-btn:hover:not(:disabled) {
+  background: #252540;
+  color: #ffffff;
+  border-color: #6366f1;
+}
+
+.html-beautifier-panel .toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.html-beautifier-panel .toolbar-spacer {
+  flex: 1;
+}
+
+.html-beautifier-panel .size-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #a0a0b0;
+  padding: 6px 12px;
+  background: #1a1a2e;
+  border-radius: 6px;
+}
+
+.html-beautifier-panel .savings {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.html-beautifier-panel .preview-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #a0a0b0;
+  cursor: pointer;
+}
+
+.html-beautifier-panel .preview-toggle input[type="checkbox"] {
+  accent-color: #6366f1;
+}
+
+/* Editor Area */
+.html-beautifier-panel .editor-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-height: 500px;
+}
+
+.html-beautifier-panel .editor-area.with-preview {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.html-beautifier-panel .editor-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.html-beautifier-panel .editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.html-beautifier-panel .editor-header label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.html-beautifier-panel .line-count {
+  font-size: 11px;
+  color: #6b6b8a;
+}
+
+.html-beautifier-panel .editor-input,
+.html-beautifier-panel .editor-output {
+  flex: 1;
+  padding: 16px;
+  background: #0f0f1a;
+  border: 1px solid #2a2a4a;
+  border-radius: 0 0 8px 8px;
+  font-size: 13px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  color: #e0e0f0;
+  resize: none;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+.html-beautifier-panel .editor-input::placeholder,
+.html-beautifier-panel .editor-output::placeholder {
+  color: #4a4a6a;
+}
+
+.html-beautifier-panel .editor-input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.html-beautifier-panel .editor-output {
+  color: #c0c0d0;
+  cursor: default;
+}
+
+/* Preview */
+.html-beautifier-panel .preview-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.html-beautifier-panel .preview-frame {
+  flex: 1;
+  border: 1px solid #2a2a4a;
+  border-radius: 0 0 8px 8px;
+  background: #ffffff;
+  min-height: 400px;
+}

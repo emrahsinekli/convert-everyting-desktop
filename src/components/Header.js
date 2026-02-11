@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../assets/logo.png';
 
 function Header() {
   const isMac = window.electronAPI?.isMac;
@@ -10,7 +11,7 @@ function Header() {
         {isMac && <div className="mac-traffic-lights-space"></div>}
 
         <div className="logo">
-          <img src="/logo.png" alt="Convert Everything" className="logo-image" />
+          <img src={logo} alt="Convert Everything" className="logo-image" />
           <span className="logo-text">Convert Everything</span>
         </div>
 

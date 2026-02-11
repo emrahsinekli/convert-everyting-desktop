@@ -29,21 +29,19 @@
 }
 
 .license-logo {
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
   margin: 0 auto 15px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
 }
 
-.logo-icon {
-  font-size: 24px;
-  font-weight: bold;
-  color: white;
+.license-logo-image {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 16px;
 }
 
 .license-header h1 {

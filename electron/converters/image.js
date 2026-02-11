@@ -128,6 +128,11 @@ class ImageConverter {
           await this.createIco(inputPath, outputPath, options);
           if (onProgress) onProgress(100);
           return { outputPath, success: true };
+        case 'icns':
+          // For ICNS (macOS), create multi-size icon
+          await this.createIcns(inputPath, outputPath, options);
+          if (onProgress) onProgress(100);
+          return { outputPath, success: true };
         default:
           // Try to let Sharp handle it automatically
           pipeline = pipeline.toFormat(outputFormat, { quality: quality });
@@ -148,7 +153,10 @@ class ImageConverter {
 
   // Create ICO file (multi-size icon)
   async createIco(inputPath, outputPath, options = {}) {
-    const sizes = [16, 32, 48, 64, 128, 256];
+    // Use provided sizes or default to common icon sizes
+    const sizes = options.sizes && options.sizes.length > 0
+      ? options.sizes.sort((a, b) => a - b)
+      : [16, 32, 48, 64, 128, 256];
     const buffers = [];
 
     for (const size of sizes) {
@@ -205,6 +213,79 @@ class ImageConverter {
       // Write image data
       img.buffer.copy(buffer, currentOffset);
       currentOffset += img.buffer.length;
+    }
+
+    return buffer;
+  }
+
+  // Create ICNS file (macOS multi-size icon)
+  async createIcns(inputPath, outputPath, options = {}) {
+    // Use provided sizes or default to common macOS icon sizes
+    const sizes = options.sizes && options.sizes.length > 0
+      ? options.sizes.sort((a, b) => a - b)
+      : [16, 32, 64, 128, 256, 512, 1024];
+
+    // ICNS type mappings for different sizes
+    const icnsTypes = {
+      16: 'icp4',   // 16x16
+      32: 'icp5',   // 32x32
+      64: 'icp6',   // 64x64
+      128: 'ic07',  // 128x128
+      256: 'ic08',  // 256x256
+      512: 'ic09',  // 512x512
+      1024: 'ic10'  // 1024x1024
+    };
+
+    const images = [];
+
+    for (const size of sizes) {
+      if (icnsTypes[size]) {
+        const buffer = await sharp(inputPath)
+          .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png()
+          .toBuffer();
+        images.push({ size, type: icnsTypes[size], buffer });
+      }
+    }
+
+    // Create ICNS file
+    const icnsBuffer = this.createIcnsBuffer(images);
+    fs.writeFileSync(outputPath, icnsBuffer);
+
+    return { outputPath, success: true };
+  }
+
+  createIcnsBuffer(images) {
+    // ICNS file format:
+    // Header: 'icns' (4 bytes) + total file size (4 bytes)
+    // For each image: type (4 bytes) + size including header (4 bytes) + PNG data
+
+    // Calculate total size
+    let totalSize = 8; // Header size
+    for (const img of images) {
+      totalSize += 8 + img.buffer.length; // 8 bytes for type+size header per image
+    }
+
+    const buffer = Buffer.alloc(totalSize);
+    let offset = 0;
+
+    // Write ICNS header
+    buffer.write('icns', offset);
+    offset += 4;
+    buffer.writeUInt32BE(totalSize, offset);
+    offset += 4;
+
+    // Write each image
+    for (const img of images) {
+      // Write type (4 bytes)
+      buffer.write(img.type, offset);
+      offset += 4;
+      // Write size (4 bytes) - includes the 8-byte header
+      buffer.writeUInt32BE(8 + img.buffer.length, offset);
+      offset += 4;
+      // Write PNG data
+      img.buffer.copy(buffer, offset);
+      offset += img.buffer.length;
     }
 
     return buffer;

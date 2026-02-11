@@ -33,6 +33,14 @@
   --radius-lg: 16px;
 
   --transition: all 0.2s ease;
+
+  /* Utility Panel Variables */
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #252542;
+  --border-color: #2a2a45;
+  --accent-color: #6366f1;
+  --accent-hover: #4f46e5;
 }
 
 /* Reset & Base */
