@@ -29,10 +29,6 @@
       "electron/**/*",
       "node_modules/**/*",
       "package.json",
-      "!node_modules/@firebase/**/esm",
-      "!node_modules/@firebase/**/dist/esm",
-      "!node_modules/firebase/**/esm",
-      "!node_modules/firebase/**/dist/esm",
       "!node_modules/**/*.map",
       "!node_modules/**/*.md",
       "!node_modules/**/*.ts",
@@ -57,7 +53,8 @@
         "from": "resources/",
         "to": "resources/",
         "filter": [
-          "**/*"
+          "**/*",
+          "!**/polar.config.example.json"
         ]
       }
     ],
@@ -93,7 +90,6 @@
     "electron-updater": "^6.7.3",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
-    "firebase": "^12.8.0",
     "fluent-ffmpeg": "^2.1.2",
     "form-data": "^4.0.5",
     "heic-convert": "^2.1.0",
@@ -118,7 +114,6 @@
     "cross-env": "^7.0.3",
     "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
-    "firebase-admin": "^13.6.0",
     "png-to-ico": "^3.0.1",
     "wait-on": "^7.2.0"
   },

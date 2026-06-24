@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import licenseService from '../firebase/licenseService';
+import licenseService from '../services/licenseService';
 import logo from '../assets/logo.png';
 import './LicenseActivation.css';
 
@@ -9,18 +9,9 @@ function LicenseActivation({ onActivated }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Format license key as user types (XXXX-XXXX-XXXX-XXXX)
+  // Normalize the key as the user types: uppercase, keep alphanumerics + dashes
   const formatLicenseKey = (value) => {
-    // Remove all non-alphanumeric characters
-    const cleaned = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-
-    // Add dashes every 4 characters
-    const parts = [];
-    for (let i = 0; i < cleaned.length && i < 16; i += 4) {
-      parts.push(cleaned.slice(i, i + 4));
-    }
-
-    return parts.join('-');
+    return value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase();
   };
 
   const handleInputChange = (e) => {
@@ -30,9 +21,11 @@ function LicenseActivation({ onActivated }) {
     setSuccess('');
   };
 
+  const isKeyComplete = (key) => key.replace(/-/g, '').length >= 8;
+
   const handleActivate = async () => {
-    if (licenseKey.replace(/-/g, '').length !== 16) {
-      setError('Please enter a valid license key (16 characters)');
+    if (!isKeyComplete(licenseKey)) {
+      setError('Please enter a valid license key');
       return;
     }
 
@@ -88,8 +81,8 @@ function LicenseActivation({ onActivated }) {
               value={licenseKey}
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
-              placeholder="XXXX-XXXX-XXXX-XXXX"
-              maxLength={19}
+              placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+              maxLength={64}
               disabled={isLoading}
               className={error ? 'error' : success ? 'success' : ''}
               autoFocus
@@ -113,7 +106,7 @@ function LicenseActivation({ onActivated }) {
           <button
             className="activate-btn"
             onClick={handleActivate}
-            disabled={isLoading || licenseKey.replace(/-/g, '').length !== 16}
+            disabled={isLoading || !isKeyComplete(licenseKey)}
           >
             {isLoading ? (
               <>

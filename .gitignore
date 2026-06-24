@@ -38,3 +38,14 @@ tools/whisper/
 # Temporary files
 *.tmp
 temp/
+
+# Polar credentials (SECRET - never commit!)
+resources/polar.config.json
+
+# Obsolete Firebase admin tooling + service account key (SECRET - never commit!)
+admin/
+
+# Stray local files (not part of the app)
+nul
+resourcesbinqpdf.zip
+test-output.mp3

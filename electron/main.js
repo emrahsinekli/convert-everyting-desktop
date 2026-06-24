@@ -81,7 +81,7 @@ app.whenReady().then(async () => {
   // Initialize dependency manager
   dependencyManager = new DependencyManager();
 
-  // Initialize license manager
+  // Initialize License Manager (Polar-backed)
   licenseManager = new LicenseManager();
 
   createWindow();
@@ -106,14 +106,29 @@ app.on('window-all-closed', () => {
 
 // ============ LICENSE HANDLERS ============
 
-// Check license status
+// Check license status (local + online verification)
 ipcMain.handle('license:check', async () => {
-  return licenseManager.loadLicense();
+  const localResult = licenseManager.loadLicense();
+  if (!localResult.valid) {
+    return localResult;
+  }
+  // Periodically verify online against Polar
+  try {
+    const onlineResult = await licenseManager.verifyLicenseOnline(localResult.key, localResult.activationId);
+    if (!onlineResult.valid && !onlineResult.offline) {
+      // License revoked, deactivated or moved - remove local
+      licenseManager.removeLicense();
+      return { valid: false, error: onlineResult.error };
+    }
+  } catch (e) {
+    // Offline - trust local license
+  }
+  return localResult;
 });
 
-// Activate license
+// Activate license (via Polar License Keys API)
 ipcMain.handle('license:activate', async (event, key) => {
-  return licenseManager.activateLicense(key);
+  return licenseManager.activateLicenseOnline(key);
 });
 
 // Get license info
@@ -121,8 +136,9 @@ ipcMain.handle('license:getInfo', async () => {
   return licenseManager.getLicenseInfo();
 });
 
-// Remove license (deactivate)
+// Remove license (deactivate seat on Polar, then delete local)
 ipcMain.handle('license:remove', async () => {
+  await licenseManager.deactivateLicenseOnline();
   return licenseManager.removeLicense();
 });
 

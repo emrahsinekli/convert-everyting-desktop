@@ -16,7 +16,7 @@ import ArchiveToolsPanel from './components/ArchiveToolsPanel';
 import EbookToolsPanel from './components/EbookToolsPanel';
 import LicenseActivation from './components/LicenseActivation';
 import { convertPdfToImages } from './utils/pdfRenderer';
-import licenseService from './firebase/licenseService';
+import licenseService from './services/licenseService';
 
 // Utility Panels
 import UnitConverterPanel from './components/UnitConverterPanel';

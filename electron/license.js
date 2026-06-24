@@ -1,29 +1,106 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 const { app } = require('electron');
 
+// License management backed by Polar (https://polar.sh) License Keys API.
+// Endpoints used:
+//   POST /v1/license-keys/activate    -> create an activation instance for a key
+//   POST /v1/license-keys/validate    -> verify a key (+ activation) is still valid
+//   POST /v1/license-keys/deactivate  -> free up an activation seat
+//
+// Credentials are loaded from polar.config.json (bundled via extraResources)
+// or from POLAR_* environment variables. The access token must be a Polar
+// Organization Access Token scoped to license_keys (read + write).
 class LicenseManager {
   constructor() {
-    // Secret key for license validation - CHANGE THIS TO YOUR OWN SECRET!
-    this.SECRET_KEY = 'ConvertEverything2024SecretKey!@#$%';
     this.LICENSE_FILE = 'license.dat';
+    this.SECRET_KEY = 'ConvertEverything2024SecretKey!@#$%';
     this.licenseData = null;
+    this.config = this.loadPolarConfig();
   }
 
-  // Get license file path
-  getLicenseFilePath() {
-    const userDataPath = app.getPath('userData');
-    return path.join(userDataPath, this.LICENSE_FILE);
+  // ============ CONFIG ============
+
+  loadPolarConfig() {
+    // Environment variables take precedence (handy for local testing)
+    let cfg = {
+      accessToken: process.env.POLAR_ACCESS_TOKEN || '',
+      organizationId: process.env.POLAR_ORGANIZATION_ID || '',
+      server: process.env.POLAR_SERVER || 'production'
+    };
+
+    const candidates = [
+      path.join(process.resourcesPath || '', 'resources', 'polar.config.json'),
+      path.join(process.resourcesPath || '', 'polar.config.json'),
+      path.join(__dirname, '..', 'resources', 'polar.config.json')
+    ];
+
+    for (const p of candidates) {
+      try {
+        if (p && fs.existsSync(p)) {
+          const file = JSON.parse(fs.readFileSync(p, 'utf8'));
+          cfg = { ...cfg, ...file };
+          break;
+        }
+      } catch (e) {
+        // ignore malformed config, fall back to env
+      }
+    }
+
+    return cfg;
   }
 
-  // Generate machine ID (hardware fingerprint)
+  isConfigured() {
+    return Boolean(this.config.accessToken && this.config.organizationId);
+  }
+
+  apiBase() {
+    return this.config.server === 'sandbox'
+      ? 'https://sandbox-api.polar.sh'
+      : 'https://api.polar.sh';
+  }
+
+  // Minimal JSON POST helper (no extra dependencies)
+  polarRequest(endpoint, body) {
+    return new Promise((resolve, reject) => {
+      const data = JSON.stringify(body);
+      const url = new URL(this.apiBase() + endpoint);
+      const options = {
+        method: 'POST',
+        hostname: url.hostname,
+        path: url.pathname,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+          'Authorization': `Bearer ${this.config.accessToken}`
+        }
+      };
+
+      const req = https.request(options, (res) => {
+        let raw = '';
+        res.on('data', (chunk) => { raw += chunk; });
+        res.on('end', () => {
+          let parsed = {};
+          try { parsed = raw ? JSON.parse(raw) : {}; } catch (e) { parsed = {}; }
+          resolve({ status: res.statusCode, body: parsed });
+        });
+      });
+
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    });
+  }
+
+  // ============ MACHINE FINGERPRINT ============
+
   getMachineId() {
     const os = require('os');
     const cpus = os.cpus();
     const networkInterfaces = os.networkInterfaces();
 
-    // Create a fingerprint from hardware info
     let fingerprint = '';
     fingerprint += os.hostname();
     fingerprint += os.platform();
@@ -31,7 +108,6 @@ class LicenseManager {
     fingerprint += cpus[0]?.model || '';
     fingerprint += os.totalmem().toString();
 
-    // Add first MAC address
     for (const iface of Object.values(networkInterfaces)) {
       for (const config of iface) {
         if (!config.internal && config.mac !== '00:00:00:00:00:00') {
@@ -41,62 +117,28 @@ class LicenseManager {
       }
     }
 
-    // Hash the fingerprint
     return crypto.createHash('sha256').update(fingerprint).digest('hex').substring(0, 16);
   }
 
-  // Validate license key format (XXXX-XXXX-XXXX-XXXX)
-  isValidFormat(key) {
-    const pattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-    return pattern.test(key);
-  }
-
-  // Validate license key algorithm
-  validateLicenseKey(key) {
-    if (!this.isValidFormat(key)) {
-      return { valid: false, error: 'Geçersiz lisans formatı' };
-    }
-
-    // Remove dashes
-    const cleanKey = key.replace(/-/g, '');
-
-    // Extract parts
-    const part1 = cleanKey.substring(0, 4);
-    const part2 = cleanKey.substring(4, 8);
-    const part3 = cleanKey.substring(8, 12);
-    const checksum = cleanKey.substring(12, 16);
-
-    // Validate checksum
-    const dataToHash = part1 + part2 + part3 + this.SECRET_KEY;
-    const expectedChecksum = crypto
-      .createHash('md5')
-      .update(dataToHash)
-      .digest('hex')
-      .substring(0, 4)
-      .toUpperCase();
-
-    if (checksum !== expectedChecksum) {
-      return { valid: false, error: 'Geçersiz lisans anahtarı' };
-    }
-
-    // Decode license type from part1
-    const licenseTypes = {
-      'STDX': 'Standard',
-      'PROX': 'Professional',
-      'ENTX': 'Enterprise',
-      'ULTX': 'Ultimate'
-    };
-
-    const licenseType = licenseTypes[part1] || 'Standard';
-
+  getSystemInfo() {
+    const os = require('os');
     return {
-      valid: true,
-      licenseType,
-      key
+      platform: os.platform(),
+      osVersion: os.release(),
+      arch: os.arch(),
+      hostname: os.hostname(),
+      username: os.userInfo().username,
+      language: app.getLocale()
     };
   }
 
-  // Encrypt data for storage
+  // ============ LOCAL ENCRYPTED STORAGE ============
+
+  getLicenseFilePath() {
+    const userDataPath = app.getPath('userData');
+    return path.join(userDataPath, this.LICENSE_FILE);
+  }
+
   encrypt(text) {
     const iv = crypto.randomBytes(16);
     const key = crypto.scryptSync(this.SECRET_KEY, 'salt', 32);
@@ -106,7 +148,6 @@ class LicenseManager {
     return iv.toString('hex') + ':' + encrypted;
   }
 
-  // Decrypt stored data
   decrypt(encryptedText) {
     try {
       const [ivHex, encrypted] = encryptedText.split(':');
@@ -121,11 +162,11 @@ class LicenseManager {
     }
   }
 
-  // Save license to file
-  saveLicense(licenseKey) {
+  saveLocalLicense(licenseKey, activationId) {
     const machineId = this.getMachineId();
     const data = {
       key: licenseKey,
+      activationId: activationId || null,
       machineId,
       activatedAt: new Date().toISOString(),
       version: app.getVersion()
@@ -133,25 +174,20 @@ class LicenseManager {
 
     const encrypted = this.encrypt(JSON.stringify(data));
     const filePath = this.getLicenseFilePath();
-
-    // Ensure directory exists
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-
     fs.writeFileSync(filePath, encrypted, 'utf8');
     this.licenseData = data;
-
     return true;
   }
 
-  // Load and verify saved license
   loadLicense() {
     const filePath = this.getLicenseFilePath();
 
     if (!fs.existsSync(filePath)) {
-      return { valid: false, error: 'Lisans bulunamadı' };
+      return { valid: false, error: 'License not found' };
     }
 
     try {
@@ -163,24 +199,17 @@ class LicenseManager {
       }
 
       const data = JSON.parse(decrypted);
-
-      // Verify machine ID (optional - remove this check if you don't want machine-locked licenses)
       const currentMachineId = this.getMachineId();
+
       if (data.machineId !== currentMachineId) {
         return { valid: false, error: 'License is not valid for this computer' };
-      }
-
-      // Verify the key is still valid
-      const validation = this.validateLicenseKey(data.key);
-      if (!validation.valid) {
-        return validation;
       }
 
       this.licenseData = data;
       return {
         valid: true,
-        licenseType: validation.licenseType,
         key: data.key,
+        activationId: data.activationId,
         activatedAt: data.activatedAt
       };
     } catch (error) {
@@ -188,47 +217,128 @@ class LicenseManager {
     }
   }
 
-  // Activate license with a new key
-  activateLicense(key) {
-    // Validate the key
-    const validation = this.validateLicenseKey(key);
+  // ============ POLAR: ACTIVATION ============
 
-    if (!validation.valid) {
-      return validation;
+  async activateLicenseOnline(key) {
+    if (!this.isConfigured()) {
+      return { valid: false, error: 'License system is not configured' };
     }
 
-    // Save the license
+    const licenseKey = (key || '').trim().toUpperCase();
+    const machineId = this.getMachineId();
+    const sys = this.getSystemInfo();
+
     try {
-      this.saveLicense(key);
-      return {
-        valid: true,
-        licenseType: validation.licenseType,
-        message: 'Lisans başarıyla etkinleştirildi!'
-      };
+      const res = await this.polarRequest('/v1/license-keys/activate', {
+        key: licenseKey,
+        organization_id: this.config.organizationId,
+        label: `${sys.hostname} (${machineId})`,
+        meta: {
+          machineId,
+          platform: sys.platform,
+          arch: sys.arch,
+          hostname: sys.hostname
+        }
+      });
+
+      if (res.status === 200 || res.status === 201) {
+        const activationId = res.body && res.body.id;
+        this.saveLocalLicense(licenseKey, activationId);
+        return {
+          valid: true,
+          licenseType: 'Standard',
+          message: 'License activated successfully!'
+        };
+      }
+
+      if (res.status === 404) {
+        return { valid: false, error: 'Invalid license key' };
+      }
+
+      if (res.status === 403) {
+        return { valid: false, error: 'This license has already been used on the maximum number of devices.' };
+      }
+
+      const detail = this.extractError(res.body);
+      return { valid: false, error: detail || 'Activation failed' };
     } catch (error) {
-      return { valid: false, error: 'Lisans kaydedilemedi: ' + error.message };
+      console.error('Polar activation error:', error);
+      return { valid: false, error: 'Activation failed: could not reach the license server.' };
     }
   }
 
-  // Remove license (for deactivation)
+  // ============ POLAR: VALIDATION ============
+
+  async verifyLicenseOnline(key, activationId) {
+    if (!this.isConfigured()) {
+      // If not configured, do not lock out an already-activated user
+      return { valid: true, offline: true };
+    }
+
+    try {
+      const body = {
+        key: (key || '').trim().toUpperCase(),
+        organization_id: this.config.organizationId
+      };
+      if (activationId) body.activation_id = activationId;
+
+      const res = await this.polarRequest('/v1/license-keys/validate', body);
+
+      if (res.status === 200) {
+        const status = res.body && res.body.status;
+        if (status && status !== 'granted') {
+          return { valid: false, error: `License ${status}` };
+        }
+        return { valid: true, licenseType: 'Standard' };
+      }
+
+      if (res.status === 404 || res.status === 403) {
+        return { valid: false, error: 'License is no longer valid for this device' };
+      }
+
+      // Unexpected status -> do not punish the user, keep them running
+      return { valid: true, offline: true };
+    } catch (error) {
+      // Network error -> trust the local license (offline support)
+      return { valid: true, offline: true };
+    }
+  }
+
+  // ============ POLAR: DEACTIVATION ============
+
+  async deactivateLicenseOnline() {
+    const local = this.licenseData || (this.loadLicense().valid ? this.licenseData : null);
+    if (!this.isConfigured() || !local || !local.activationId) {
+      return { success: false };
+    }
+
+    try {
+      await this.polarRequest('/v1/license-keys/deactivate', {
+        key: local.key,
+        organization_id: this.config.organizationId,
+        activation_id: local.activationId
+      });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ============ LOCAL OPERATIONS ============
+
   removeLicense() {
     const filePath = this.getLicenseFilePath();
-
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
-
     this.licenseData = null;
     return true;
   }
 
-  // Get current license info
   getLicenseInfo() {
     if (this.licenseData) {
-      const validation = this.validateLicenseKey(this.licenseData.key);
       return {
         valid: true,
-        licenseType: validation.licenseType,
         key: this.maskKey(this.licenseData.key),
         activatedAt: this.licenseData.activatedAt
       };
@@ -236,10 +346,17 @@ class LicenseManager {
     return { valid: false };
   }
 
-  // Mask license key for display (XXXX-****-****-XXXX)
+  extractError(body) {
+    if (!body) return null;
+    if (typeof body.detail === 'string') return body.detail;
+    if (Array.isArray(body.detail) && body.detail[0]?.msg) return body.detail[0].msg;
+    if (typeof body.error === 'string') return body.error;
+    return null;
+  }
+
   maskKey(key) {
-    const parts = key.split('-');
-    return `${parts[0]}-****-****-${parts[3]}`;
+    if (!key || key.length < 8) return '****';
+    return `${key.slice(0, 4)}-****-${key.slice(-4)}`;
   }
 }
 

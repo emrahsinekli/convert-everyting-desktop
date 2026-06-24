@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy this file to polar.config.json and fill in your real Polar credentials. Use server: 'sandbox' while testing, 'production' when live.",
+  "accessToken": "polar_oat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "organizationId": "00000000-0000-0000-0000-000000000000",
+  "server": "production"
+}
