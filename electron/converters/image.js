@@ -683,6 +683,146 @@ class ImageConverter {
       throw new Error(`Image watermark failed: ${error.message}`);
     }
   }
+
+  // ============ UNIFIED EDIT PIPELINE ============
+  // Applies a full declarative "edit recipe" with sharp, in a fixed order so
+  // the renderer's live preview and this export stay in sync.
+  //
+  // recipe = {
+  //   rotate, flipH, flipV,                          // geometry
+  //   crop: { left, top, width, height },            // in transformed-image px
+  //   resize: { width, height, fit },
+  //   brightness, contrast, saturation, hue,         // adjustments
+  //   temperature, blur, sharpen, grayscale, invert, sepia,
+  //   background,                                     // flatten color for opaque formats
+  //   format, quality, stripMetadata, compositeOverlayPng, compositeMaskPng
+  // }
+  async applyEdit(inputPath, outputPath, recipe = {}, options = {}) {
+    const { onProgress } = options;
+    try {
+      if (onProgress) onProgress(5);
+
+      const bg = recipe.background || { r: 255, g: 255, b: 255, alpha: 1 };
+      let img = sharp(inputPath, { failOn: 'none', animated: false });
+
+      // 1) Rotation (90° steps and/or fine straighten combined into one angle)
+      const angle = Number(recipe.rotate) || 0;
+      if (angle % 360 !== 0) {
+        img = img.rotate(angle, { background: bg });
+      }
+
+      // 2) Flip / flop
+      if (recipe.flipV) img = img.flip();   // vertical (top-bottom)
+      if (recipe.flipH) img = img.flop();   // horizontal (left-right)
+
+      // We must materialize before extract if geometry changed, so crop coords
+      // (which the UI computes in the transformed-image space) are valid.
+      if ((angle % 360 !== 0 || recipe.flipV || recipe.flipH) && recipe.crop) {
+        img = sharp(await img.toBuffer(), { failOn: 'none' });
+      }
+
+      // 3) Crop (coordinates already in the transformed image's pixel space)
+      if (recipe.crop) {
+        const meta = await img.metadata();
+        let { left, top, width, height } = recipe.crop;
+        left = Math.max(0, Math.round(left));
+        top = Math.max(0, Math.round(top));
+        width = Math.round(width);
+        height = Math.round(height);
+        // Clamp to bounds to avoid sharp "bad extract area" errors
+        width = Math.min(width, (meta.width || width) - left);
+        height = Math.min(height, (meta.height || height) - top);
+        if (width > 0 && height > 0) {
+          img = img.extract({ left, top, width, height });
+        }
+      }
+      if (onProgress) onProgress(35);
+
+      // 4) Resize
+      if (recipe.resize && (recipe.resize.width || recipe.resize.height)) {
+        img = img.resize({
+          width: recipe.resize.width || null,
+          height: recipe.resize.height || null,
+          fit: recipe.resize.fit || 'inside',
+          withoutEnlargement: recipe.resize.allowUpscale ? false : false,
+          background: bg
+        });
+      }
+
+      // 5) Adjustments (order chosen to mirror typical CSS-filter preview)
+      const contrast = recipe.contrast == null ? 1 : recipe.contrast;
+      if (contrast !== 1) {
+        img = img.linear(contrast, 128 * (1 - contrast));
+      }
+
+      // Temperature: warm (>0) boosts red, cools blue; cool (<0) the reverse
+      const temp = Number(recipe.temperature) || 0; // -100..100
+      if (temp !== 0) {
+        const t = temp / 100;
+        img = img.linear([1 + 0.25 * t, 1, 1 - 0.25 * t], [0, 0, 0]);
+      }
+
+      const modulate = {};
+      if (recipe.brightness != null && recipe.brightness !== 1) modulate.brightness = recipe.brightness;
+      if (recipe.saturation != null && recipe.saturation !== 1) modulate.saturation = recipe.saturation;
+      if (recipe.hue) modulate.hue = recipe.hue;
+      if (Object.keys(modulate).length) img = img.modulate(modulate);
+
+      if (recipe.sepia) {
+        img = img.recomb([
+          [0.393, 0.769, 0.189],
+          [0.349, 0.686, 0.168],
+          [0.272, 0.534, 0.131]
+        ]);
+      }
+      if (recipe.grayscale) img = img.grayscale();
+      if (recipe.invert) img = img.negate({ alpha: false });
+      if (recipe.blur && recipe.blur > 0) img = img.blur(Math.max(0.3, recipe.blur));
+      if (recipe.sharpen) img = img.sharpen();
+      if (onProgress) onProgress(55);
+
+      // 6) Composite overlays (annotations PNG / background-removal mask)
+      if (recipe.compositeMaskPng) {
+        // Apply an alpha mask (e.g. from background removal) as dest-in
+        img = sharp(await img.ensureAlpha().toBuffer(), { failOn: 'none' })
+          .composite([{ input: recipe.compositeMaskPng, blend: 'dest-in' }]);
+      }
+      if (recipe.compositeOverlayPng) {
+        img = img.composite([{ input: recipe.compositeOverlayPng, left: 0, top: 0 }]);
+      }
+      if (onProgress) onProgress(70);
+
+      // 7) Output format + quality + metadata
+      const fmt = (recipe.format || path.extname(outputPath).slice(1) || 'png').toLowerCase();
+      const q = recipe.quality || 90;
+      const opaque = ['jpeg', 'jpg'].includes(fmt);
+      if (opaque) img = img.flatten({ background: bg });
+
+      switch (fmt) {
+        case 'jpg':
+        case 'jpeg': img = img.jpeg({ quality: q, mozjpeg: true }); break;
+        case 'png': img = img.png({ quality: q, compressionLevel: 9 }); break;
+        case 'webp': img = img.webp({ quality: q }); break;
+        case 'avif': img = img.avif({ quality: q }); break;
+        case 'tiff':
+        case 'tif': img = img.tiff({ quality: q }); break;
+        case 'gif': img = img.gif(); break;
+        case 'bmp': /* sharp has no bmp encoder; fall back to png */ img = img.png(); break;
+        default: break;
+      }
+
+      if (recipe.stripMetadata === false) img = img.keepMetadata();
+
+      const outDir = path.dirname(outputPath);
+      if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+      const info = await img.toFile(outputPath);
+      if (onProgress) onProgress(100);
+      return { outputPath, success: true, width: info.width, height: info.height, size: info.size };
+    } catch (error) {
+      throw new Error(`Image edit failed: ${error.message}`);
+    }
+  }
 }
 
 module.exports = ImageConverter;

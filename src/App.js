@@ -9,7 +9,7 @@ import DependencyModal from './components/DependencyModal';
 import HistoryPanel from './components/HistoryPanel';
 import PDFToolsPanel from './components/PDFToolsPanel';
 import VideoToolsPanel from './components/VideoToolsPanel';
-import ImageToolsPanel from './components/ImageToolsPanel';
+import ImageEditor from './components/ImageEditor';
 import AudioToolsPanel from './components/AudioToolsPanel';
 import GIFToolsPanel from './components/GIFToolsPanel';
 import ArchiveToolsPanel from './components/ArchiveToolsPanel';
@@ -666,7 +666,7 @@ function App() {
           )}
 
           {activeTab === 'tools-image' && (
-            <ImageToolsPanel />
+            <ImageEditor />
           )}
 
           {activeTab === 'tools-audio' && (

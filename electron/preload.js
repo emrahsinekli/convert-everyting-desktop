@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   videoToGif: (params) => ipcRenderer.invoke('video:toGif', params),
 
   // Image tools
+  applyImageEdit: (params) => ipcRenderer.invoke('image:applyEdit', params),
+  getImagePreview: (params) => ipcRenderer.invoke('image:getPreview', params),
   resizeImage: (params) => ipcRenderer.invoke('image:resize', params),
   compressImage: (params) => ipcRenderer.invoke('image:compress', params),
   cropImage: (params) => ipcRenderer.invoke('image:crop', params),

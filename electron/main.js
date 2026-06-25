@@ -777,6 +777,44 @@ ipcMain.handle('image:rotate', async (event, { inputPath, outputPath, angle }) =
   }
 });
 
+// Unified image edit pipeline (live editor export)
+ipcMain.handle('image:applyEdit', async (event, { inputPath, outputPath, recipe }) => {
+  try {
+    const result = await converters.image.applyEdit(inputPath, outputPath, recipe || {}, {
+      onProgress: (progress) => {
+        if (mainWindow) mainWindow.webContents.send('convert:progress', { progress });
+      }
+    });
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('Image applyEdit error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Read image as a data URL for the renderer preview (handles HEIC/TIFF/etc via sharp)
+ipcMain.handle('image:getPreview', async (event, { inputPath, maxDim = 2400 }) => {
+  try {
+    const sh = require('sharp');
+    const meta = await sh(inputPath, { failOn: 'none' }).metadata();
+    const buf = await sh(inputPath, { failOn: 'none' })
+      .rotate() // auto-orient via EXIF
+      .resize({ width: Math.min(maxDim, meta.width || maxDim), height: Math.min(maxDim, meta.height || maxDim), fit: 'inside', withoutEnlargement: true })
+      .png()
+      .toBuffer();
+    return {
+      success: true,
+      dataUrl: `data:image/png;base64,${buf.toString('base64')}`,
+      naturalWidth: meta.width,
+      naturalHeight: meta.height,
+      format: meta.format
+    };
+  } catch (error) {
+    console.error('Image getPreview error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Image Watermark
 ipcMain.handle('image:watermark', async (event, params) => {
   try {
