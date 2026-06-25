@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLicenseInfo: () => ipcRenderer.invoke('license:getInfo'),
   removeLicense: () => ipcRenderer.invoke('license:remove'),
 
+  // Free trial + external links
+  getTrialStatus: () => ipcRenderer.invoke('trial:get'),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+
   // Dialog operations
   openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
   saveFile: (options) => ipcRenderer.invoke('dialog:saveFile', options),

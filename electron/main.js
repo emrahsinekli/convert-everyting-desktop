@@ -142,6 +142,40 @@ ipcMain.handle('license:remove', async () => {
   return licenseManager.removeLicense();
 });
 
+// ============ FREE TRIAL HANDLERS ============
+
+const TRIAL_DAYS = 3;
+const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+// Trial status. The trial clock starts on first launch and is stored in
+// electron-store (userData). Returns how many days are left and whether it
+// has expired. A valid Polar license always supersedes the trial.
+ipcMain.handle('trial:get', () => {
+  let start = store.get('trialStartedAt');
+  if (!start) {
+    start = Date.now();
+    store.set('trialStartedAt', start);
+  }
+  const elapsed = Date.now() - start;
+  const remaining = Math.max(0, TRIAL_MS - elapsed);
+  return {
+    startedAt: start,
+    totalDays: TRIAL_DAYS,
+    daysLeft: Math.ceil(remaining / (24 * 60 * 60 * 1000)),
+    msLeft: remaining,
+    expired: elapsed >= TRIAL_MS
+  };
+});
+
+// Open an external URL in the user's default browser (e.g. Polar checkout)
+ipcMain.handle('shell:openExternal', async (event, url) => {
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    await shell.openExternal(url);
+    return { success: true };
+  }
+  return { success: false, error: 'Invalid URL' };
+});
+
 // ============ SYSTEM INFO HANDLERS ============
 const os = require('os');
 const crypto = require('crypto');

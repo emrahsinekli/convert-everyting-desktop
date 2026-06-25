@@ -3,7 +3,11 @@ import licenseService from '../services/licenseService';
 import logo from '../assets/logo.png';
 import './LicenseActivation.css';
 
-function LicenseActivation({ onActivated }) {
+// TODO: Set this to your real Polar product/checkout link before release.
+// Example: https://polar.sh/emrahsinekli/products/<PRODUCT_ID> or a checkout URL.
+const PURCHASE_URL = 'https://polar.sh/emrahsinekli';
+
+function LicenseActivation({ onActivated, trialExpired }) {
   const [licenseKey, setLicenseKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -65,12 +69,29 @@ function LicenseActivation({ onActivated }) {
             <img src={logo} alt="Convert Everything" className="license-logo-image" />
           </div>
           <h1>Convert Everything</h1>
-          <p className="license-subtitle">License Activation</p>
+          <p className="license-subtitle">
+            {trialExpired ? 'Deneme süreniz doldu' : 'Pro Lisans'}
+          </p>
         </div>
 
         <div className="license-content">
-          <p className="license-info">
-            Enter your license key to use the application.
+          {trialExpired && (
+            <p className="license-info">
+              3 günlük ücretsiz deneme süreniz sona erdi. Tüm özellikleri kullanmaya
+              devam etmek için Pro'ya geçin veya lisans anahtarınızı girin.
+            </p>
+          )}
+
+          <button
+            className="activate-btn"
+            style={{ marginBottom: 18, background: 'linear-gradient(90deg,#f6ad55,#ed8936)' }}
+            onClick={() => licenseService.openExternal(PURCHASE_URL)}
+          >
+            ⭐ Pro Satın Al
+          </button>
+
+          <p className="license-info" style={{ fontSize: 13, opacity: 0.8 }}>
+            Lisans anahtarınız varsa aşağıya girin:
           </p>
 
           <div className="license-input-group">

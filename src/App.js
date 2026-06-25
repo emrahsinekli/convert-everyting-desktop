@@ -49,25 +49,38 @@ function App() {
   const [mergePdf, setMergePdf] = useState(true); // Merge multiple images into single PDF
   const [errorModal, setErrorModal] = useState({ show: false, message: '', title: 'Error' });
   const [copySuccess, setCopySuccess] = useState(false);
-  const [licenseStatus, setLicenseStatus] = useState({ checking: true, valid: false });
+  // valid: app is usable (Pro license OR active free trial)
+  // isPro: a paid Polar license is active
+  // trialDaysLeft: days remaining in the free trial (when not Pro)
+  const [licenseStatus, setLicenseStatus] = useState({ checking: true, valid: false, isPro: false, trialDaysLeft: 0 });
   const [licenseInfo, setLicenseInfo] = useState(null);
 
-  // Check license on startup using Firebase
+  // Decide access on startup: a valid Polar license unlocks Pro; otherwise the
+  // user gets a 3-day free trial. The Pro/key screen only appears once the
+  // trial has expired and there is no valid license.
   useEffect(() => {
-    const checkLicense = async () => {
+    const checkAccess = async () => {
       try {
         const result = await licenseService.checkLicense();
-        setLicenseStatus({ checking: false, valid: result.valid });
         if (result.valid) {
           setLicenseInfo(result);
+          setLicenseStatus({ checking: false, valid: true, isPro: true, trialDaysLeft: 0 });
+          return;
+        }
+        const trial = await licenseService.getTrialStatus();
+        if (!trial.expired) {
+          setLicenseStatus({ checking: false, valid: true, isPro: false, trialDaysLeft: trial.daysLeft });
+        } else {
+          setLicenseStatus({ checking: false, valid: false, isPro: false, trialDaysLeft: 0 });
         }
       } catch (error) {
-        console.error('License check failed:', error);
-        setLicenseStatus({ checking: false, valid: false });
+        console.error('Access check failed:', error);
+        // On error, fall back to allowing the trial rather than locking out
+        setLicenseStatus({ checking: false, valid: true, isPro: false, trialDaysLeft: 0 });
       }
     };
 
-    checkLicense();
+    checkAccess();
   }, []);
 
   // Load initial data (only after license is valid)
@@ -399,7 +412,7 @@ function App() {
 
   // Handle license activation
   const handleLicenseActivated = useCallback((result) => {
-    setLicenseStatus({ checking: false, valid: true });
+    setLicenseStatus({ checking: false, valid: true, isPro: true, trialDaysLeft: 0 });
     setLicenseInfo(result);
   }, []);
 
@@ -476,14 +489,53 @@ function App() {
     );
   }
 
-  // Show license activation if not valid
+  // Show the Pro/key screen only once the free trial has expired
   if (!licenseStatus.valid) {
-    return <LicenseActivation onActivated={handleLicenseActivated} />;
+    return <LicenseActivation onActivated={handleLicenseActivated} trialExpired={true} />;
   }
 
   return (
     <div className="app">
       <Header />
+
+      {!licenseStatus.isPro && (
+        <div className="trial-banner">
+          <span className="trial-banner-text">
+            🎁 Ücretsiz deneme — {licenseStatus.trialDaysLeft} gün kaldı
+          </span>
+          <button
+            className="trial-banner-btn"
+            onClick={() => setLicenseStatus((s) => ({ ...s, valid: false }))}
+          >
+            Pro'ya Geç
+          </button>
+          <style>{`
+            .trial-banner {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 14px;
+              padding: 8px 16px;
+              background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+              color: #fff;
+              font-size: 13px;
+              font-weight: 500;
+            }
+            .trial-banner-btn {
+              background: rgba(255,255,255,0.18);
+              border: 1px solid rgba(255,255,255,0.4);
+              color: #fff;
+              padding: 4px 14px;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 600;
+              font-size: 12px;
+              transition: background 0.2s;
+            }
+            .trial-banner-btn:hover { background: rgba(255,255,255,0.32); }
+          `}</style>
+        </div>
+      )}
 
       <div className="app-content">
         <Sidebar

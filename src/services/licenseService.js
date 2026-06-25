@@ -19,6 +19,24 @@ class LicenseService {
     return { success: false, error: 'Activation requires the desktop app' };
   }
 
+  // Get free-trial status from the Electron main process
+  async getTrialStatus() {
+    if (window.electronAPI && window.electronAPI.getTrialStatus) {
+      return await window.electronAPI.getTrialStatus();
+    }
+    // Fallback (browser/dev without Electron): treat as active trial
+    return { expired: false, daysLeft: 3, totalDays: 3 };
+  }
+
+  // Open an external URL (e.g. Polar checkout) via the main process
+  openExternal(url) {
+    if (window.electronAPI && window.electronAPI.openExternal) {
+      window.electronAPI.openExternal(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+
   // Check license via Electron IPC
   async checkLicense() {
     if (window.electronAPI && window.electronAPI.checkLicense) {
