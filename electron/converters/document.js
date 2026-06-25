@@ -36,6 +36,8 @@ class DocumentConverter {
     const possiblePaths = [
       // Development path (relative to project)
       path.join(__dirname, '..', '..', 'resources', 'bin', binInfo.folder, 'bin', binInfo.exe),
+      // Packaged app path (extraResources copies resources/ -> Resources/resources/)
+      path.join(process.resourcesPath || '', 'resources', 'bin', binInfo.folder, 'bin', binInfo.exe),
       // Packaged app path
       path.join(process.resourcesPath || '', 'bin', binInfo.folder, 'bin', binInfo.exe),
       // Alternative packaged path
