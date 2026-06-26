@@ -1,0 +1,7 @@
+Background removal model: u2netp.onnx
+Architecture: U^2-Net (https://github.com/xuebinqin/U-2-Net)
+License: Apache License 2.0 — permitted for commercial use.
+
+Inference runtime: ONNX Runtime (onnxruntime-node), MIT License.
+
+This model runs 100% on-device; no image data is uploaded anywhere.

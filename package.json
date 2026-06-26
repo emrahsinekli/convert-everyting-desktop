@@ -45,14 +45,17 @@
       "!node_modules/ffprobe-static/bin/darwin/x64/**",
       "!node_modules/pdf-poppler/lib/win/**",
       "!node_modules/pdfjs-dist/**",
-      "!node_modules/@napi-rs/**"
+      "!node_modules/@napi-rs/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/linux/**"
     ],
     "asar": true,
     "asarUnpack": [
       "node_modules/ffmpeg-static/**",
       "node_modules/ffprobe-static/**",
       "node_modules/sharp/**",
-      "node_modules/@img/**"
+      "node_modules/@img/**",
+      "node_modules/onnxruntime-node/bin/**"
     ],
     "extraResources": [
       {
@@ -104,6 +107,7 @@
     "form-data": "^4.0.5",
     "heic-convert": "^2.1.0",
     "mammoth": "^1.6.0",
+    "onnxruntime-node": "^1.27.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pdf-poppler": "^0.2.3",

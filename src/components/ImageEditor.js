@@ -264,9 +264,28 @@ function ImageEditor({ initialTool = 'crop' }) {
     { id: 'adjust', ic: '🎚️', label: 'Adjust' },
     { id: 'filter', ic: '🎨', label: 'Filters' },
     { id: 'resize', ic: '📐', label: 'Resize' },
+    { id: 'bg', ic: '🪄', label: 'Cutout' },
     { id: 'watermark', ic: '💧', label: 'Mark' },
     { id: 'export', ic: '💾', label: 'Export' },
   ];
+
+  // ---- Background removal (local, offline AI) ----
+  const [bgDone, setBgDone] = useState(false);
+  const doRemoveBg = async () => {
+    if (!file || !window.electronAPI) return;
+    setBusy(true); setBusyMsg('Removing background (on-device AI)…');
+    try {
+      const res = await window.electronAPI.removeBackground({ inputPath: file.path });
+      if (!res?.success) throw new Error(res?.error || 'Background removal failed');
+      // The cutout becomes the new working source so further edits/exports use it
+      setFile((f) => ({ ...f, path: res.tempPath, ext: 'png' }));
+      setBase((b) => ({ ...b, dataUrl: res.dataUrl }));
+      setFormat('png');
+      setBgDone(true);
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally { setBusy(false); }
+  };
 
   // ---- Watermark (reuse existing pro WatermarkTool) ----
   const doWatermark = async (config) => {
@@ -450,6 +469,16 @@ function ImageEditor({ initialTool = 'crop' }) {
                     <button key={s.label} className="ie-chip" onClick={() => { setResizeW(s.w); setResizeH(s.h); setLockRatio(false); }}>{s.label}</button>
                   ))}
                 </div>
+              </>
+            )}
+
+            {tool === 'bg' && (
+              <>
+                <h3>Background Removal</h3>
+                <p className="sub">100% on-device AI (U²-Net). No upload, fully private & offline.</p>
+                <button className="ie-btn primary ie-btn-block" onClick={doRemoveBg} disabled={busy}>🪄 Remove Background</button>
+                {bgDone && <p className="sub" style={{ marginTop: 12, color: '#7CFC9A' }}>✓ Background removed. Export as PNG to keep transparency, or add a new background color below.</p>}
+                <p className="sub" style={{ marginTop: 14 }}>Tip: after removing, use Crop/Resize and Export → PNG. The checkerboard shows transparent areas.</p>
               </>
             )}
 

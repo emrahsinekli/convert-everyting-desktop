@@ -777,6 +777,32 @@ ipcMain.handle('image:rotate', async (event, { inputPath, outputPath, angle }) =
   }
 });
 
+// Local background removal (offline U^2-Net via onnxruntime)
+let _bgRemover = null;
+ipcMain.handle('image:removeBackground', async (event, { inputPath }) => {
+  try {
+    if (!_bgRemover) {
+      const BackgroundRemover = require('./converters/bgremove');
+      _bgRemover = new BackgroundRemover();
+    }
+    const png = await _bgRemover.removeToBuffer(inputPath, {
+      onProgress: (progress) => { if (mainWindow) mainWindow.webContents.send('convert:progress', { progress }); }
+    });
+    // Persist to a temp file so further edits/exports can use it as the source
+    const os = require('os');
+    const tmpPath = path.join(os.tmpdir(), `ce_nobg_${Date.now()}.png`);
+    fs.writeFileSync(tmpPath, png);
+    return {
+      success: true,
+      tempPath: tmpPath,
+      dataUrl: `data:image/png;base64,${png.toString('base64')}`
+    };
+  } catch (error) {
+    console.error('Background removal error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Unified image edit pipeline (live editor export)
 ipcMain.handle('image:applyEdit', async (event, { inputPath, outputPath, recipe }) => {
   try {
