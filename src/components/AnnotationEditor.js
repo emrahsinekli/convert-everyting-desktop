@@ -147,28 +147,28 @@ function AnnotationEditor({ imageDataUrl, naturalWidth, naturalHeight, onApply, 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '10px 14px', borderBottom: '1px solid #26263a', background: '#16162a' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.10)', background: '#242426' }}>
         {TOOLS.map((t) => (
           <button key={t.id} onClick={() => { setTool(t.id); setSelectedId(null); }}
-            style={{ background: tool === t.id ? '#667eea' : '#2a2a44', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            style={{ background: tool === t.id ? '#5e5ce6' : '#3a3a3c', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
             {t.ic} {t.label}
           </button>
         ))}
-        <span style={{ width: 1, height: 24, background: '#33334d', margin: '0 4px' }} />
+        <span style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.12)', margin: '0 4px' }} />
         <input type="color" value={color} onChange={(e) => { setColor(e.target.value); if (selectedId) updateShape(selectedId, { stroke: e.target.value, fill: shapeFill(shapes.find(s=>s.id===selectedId), e.target.value) }); }} title="Color" style={{ width: 34, height: 30, border: 'none', background: 'none', cursor: 'pointer' }} />
-        <label style={{ color: '#b8b8d0', fontSize: 12 }}>Size
-          <input type="range" min="1" max="30" value={strokeW} onChange={(e) => setStrokeW(parseInt(e.target.value))} style={{ verticalAlign: 'middle', marginLeft: 6, accentColor: '#667eea' }} />
+        <label style={{ color: '#aeaeb2', fontSize: 12 }}>Size
+          <input type="range" min="1" max="30" value={strokeW} onChange={(e) => setStrokeW(parseInt(e.target.value))} style={{ verticalAlign: 'middle', marginLeft: 6, accentColor: '#5e5ce6' }} />
         </label>
-        <label style={{ color: '#b8b8d0', fontSize: 12 }}>Font
-          <input type="range" min="12" max="96" value={fontSize} onChange={(e) => { setFontSize(parseInt(e.target.value)); if (selectedId) updateShape(selectedId, { fontSize: parseInt(e.target.value) }); }} style={{ verticalAlign: 'middle', marginLeft: 6, accentColor: '#667eea' }} />
+        <label style={{ color: '#aeaeb2', fontSize: 12 }}>Font
+          <input type="range" min="12" max="96" value={fontSize} onChange={(e) => { setFontSize(parseInt(e.target.value)); if (selectedId) updateShape(selectedId, { fontSize: parseInt(e.target.value) }); }} style={{ verticalAlign: 'middle', marginLeft: 6, accentColor: '#5e5ce6' }} />
         </label>
         <span style={{ flex: 1 }} />
         <button onClick={deleteSelected} disabled={!selectedId} style={{ background: 'transparent', color: '#ffb4b4', border: '1px solid #5a3a3a', borderRadius: 7, padding: '7px 11px', cursor: 'pointer' }}>🗑 Delete</button>
-        <button onClick={() => { setShapes([]); setSelectedId(null); }} style={{ background: 'transparent', color: '#cfcfe6', border: '1px solid #33334d', borderRadius: 7, padding: '7px 11px', cursor: 'pointer' }}>Clear</button>
-        <button onClick={apply} disabled={busy || !shapes.length} style={{ background: 'linear-gradient(90deg,#667eea,#764ba2)', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', cursor: 'pointer', fontWeight: 700 }}>✓ Apply</button>
+        <button onClick={() => { setShapes([]); setSelectedId(null); }} style={{ background: 'transparent', color: '#d8d8de', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '7px 11px', cursor: 'pointer' }}>Clear</button>
+        <button onClick={apply} disabled={busy || !shapes.length} style={{ background: 'linear-gradient(90deg,#5e5ce6,#6f6ce8)', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', cursor: 'pointer', fontWeight: 700 }}>✓ Apply</button>
       </div>
 
-      <div ref={wrapRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#12121c', overflow: 'auto', position: 'relative' }}>
+      <div ref={wrapRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#161617', overflow: 'auto', position: 'relative' }}>
         {img && (
           <Stage ref={stageRef} width={stageSize.w} height={stageSize.h}
             onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
@@ -207,7 +207,7 @@ function AnnotationEditor({ imageDataUrl, naturalWidth, naturalHeight, onApply, 
           <textarea autoFocus defaultValue={editingText.value}
             onBlur={(e) => { updateShape(editingText.id, { text: e.target.value || ' ' }); setEditingText(null); }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-            style={{ position: 'absolute', left: (wrapRef.current ? (wrapRef.current.clientWidth - stageSize.w)/2 : 0) + editingText.x, top: (wrapRef.current ? (wrapRef.current.clientHeight - stageSize.h)/2 : 0) + editingText.y, fontSize, fontWeight: 'bold', color, background: 'rgba(0,0,0,.5)', border: '1px solid #667eea', borderRadius: 4, padding: 2, minWidth: 80, zIndex: 10 }} />
+            style={{ position: 'absolute', left: (wrapRef.current ? (wrapRef.current.clientWidth - stageSize.w)/2 : 0) + editingText.x, top: (wrapRef.current ? (wrapRef.current.clientHeight - stageSize.h)/2 : 0) + editingText.y, fontSize, fontWeight: 'bold', color, background: 'rgba(0,0,0,.5)', border: '1px solid #5e5ce6', borderRadius: 4, padding: 2, minWidth: 80, zIndex: 10 }} />
         )}
       </div>
     </div>

@@ -327,7 +327,7 @@ function ImageEditor({ initialTool = 'crop' }) {
       <div className="ie-topbar">
         <span className="ie-title">🖼️ Image Editor</span>
         <button className="ie-btn" onClick={openImage}>📂 {file ? 'Open Another' : 'Open Image'}</button>
-        {file && <span style={{ color: '#8a8aa5', fontSize: 12 }}>{file.name}</span>}
+        {file && <span style={{ color: '#8e8e93', fontSize: 12 }}>{file.name}</span>}
         <div className="spacer" />
         {file && (
           <>
@@ -354,7 +354,7 @@ function ImageEditor({ initialTool = 'crop' }) {
         ) : tool === 'watermark' && file ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
             <h3 style={{ margin: '0 0 4px' }}>Watermark</h3>
-            <p className="sub" style={{ color: '#8a8aa5', fontSize: 12, marginTop: 0 }}>Add a text or logo watermark with full positioning, opacity & tiling.</p>
+            <p className="sub" style={{ color: '#8e8e93', fontSize: 12, marginTop: 0 }}>Add a text or logo watermark with full positioning, opacity & tiling.</p>
             <WatermarkTool mediaType="image" selectedFile={file} onProcess={doWatermark} isProcessing={busy} progress={0} />
           </div>
         ) : (

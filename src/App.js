@@ -476,7 +476,7 @@ function App() {
             width: 48px;
             height: 48px;
             border: 3px solid #3a3a5a;
-            border-top-color: #667eea;
+            border-top-color: #5e5ce6;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 16px;
@@ -516,7 +516,7 @@ function App() {
               justify-content: center;
               gap: 14px;
               padding: 8px 16px;
-              background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+              background: linear-gradient(90deg, #5e5ce6 0%, #6f6ce8 100%);
               color: #fff;
               font-size: 13px;
               font-weight: 500;
