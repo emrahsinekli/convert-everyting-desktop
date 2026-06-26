@@ -43,11 +43,6 @@ class BackgroundRemover {
     await this.init();
     if (onProgress) onProgress(10);
 
-    // Original at full size (auto-oriented)
-    const baseSharp = sharp(inputPath, { failOn: 'none' }).rotate();
-    const meta = await baseSharp.metadata();
-    const W = meta.width, H = meta.height;
-
     // Preprocess: RGB resized to 320x320 (fill), normalized to CHW float32
     const rgb = await sharp(inputPath, { failOn: 'none' })
       .rotate()
@@ -81,24 +76,31 @@ class BackgroundRemover {
     const mask = Buffer.alloc(plane);
     for (let i = 0; i < plane; i++) mask[i] = Math.round(((data[i] - mn) / range) * 255);
 
-    // Upscale mask to original size, slight blur to feather edges
-    const maskFull = await sharp(mask, { raw: { width: SIZE, height: SIZE, channels: 1 } })
-      .resize(W, H, { fit: 'fill' })
-      .blur(0.6)
-      .raw()
-      .toBuffer();
-    if (onProgress) onProgress(85);
-
-    // Compose: replace the alpha channel of the original with the mask (reliable)
-    const { data: rgba } = await sharp(inputPath, { failOn: 'none' })
+    // Decode the original RGBA first — this is the single source of truth for
+    // dimensions (after EXIF auto-orient), so the mask and pixels always align.
+    const { data: rgba, info } = await sharp(inputPath, { failOn: 'none' })
       .rotate()
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
-    const px = W * H;
-    for (let i = 0; i < px; i++) rgba[i * 4 + 3] = maskFull[i];
+    const OW = info.width, OH = info.height, channels = info.channels;
 
-    const png = await sharp(rgba, { raw: { width: W, height: H, channels: 4 } })
+    // Upscale the 320 mask to the exact decoded dimensions, feather edges.
+    // NOTE: resize/blur may promote the 1-channel mask to 3 channels, so we
+    // read back its real channel count and index the luminance channel.
+    const { data: maskFull, info: mi } = await sharp(mask, { raw: { width: SIZE, height: SIZE, channels: 1 } })
+      .resize(OW, OH, { fit: 'fill' })
+      .blur(0.6)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const mc = mi.channels;
+    if (onProgress) onProgress(85);
+
+    // Replace the alpha channel with the mask's luminance
+    const px = OW * OH;
+    for (let i = 0; i < px; i++) rgba[i * channels + (channels - 1)] = maskFull[i * mc];
+
+    const png = await sharp(rgba, { raw: { width: OW, height: OH, channels } })
       .png()
       .toBuffer();
     if (onProgress) onProgress(100);
