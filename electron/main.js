@@ -803,6 +803,56 @@ ipcMain.handle('image:removeBackground', async (event, { inputPath }) => {
   }
 });
 
+// Bake annotations (overlay PNG + blur/redact regions) into the image
+ipcMain.handle('image:applyAnnotations', async (event, { inputPath, baseDataUrl, overlayBase64, blurRegions }) => {
+  try {
+    const sh = require('sharp');
+    const os = require('os');
+    // Prefer the exact image the user annotated on (working preview) for
+    // pixel-perfect overlay alignment; fall back to the original file.
+    const baseInput = baseDataUrl
+      ? Buffer.from(baseDataUrl.replace(/^data:image\/\w+;base64,/, ''), 'base64')
+      : inputPath;
+    let img = sh(baseInput, { failOn: 'none' });
+    if (!baseDataUrl) img = img.rotate();
+    const meta = await img.metadata();
+    const W = meta.width, H = meta.height;
+    let buf = await img.ensureAlpha().png().toBuffer();
+
+    // Blur/pixelate regions (full-res coords)
+    if (Array.isArray(blurRegions) && blurRegions.length) {
+      const composites = [];
+      for (const r of blurRegions) {
+        const left = Math.max(0, Math.round(r.x));
+        const top = Math.max(0, Math.round(r.y));
+        const width = Math.min(Math.round(r.width), W - left);
+        const height = Math.min(Math.round(r.height), H - top);
+        if (width > 1 && height > 1) {
+          const region = await sh(buf).extract({ left, top, width, height })
+            .blur(Math.max(8, Math.round(Math.min(width, height) / 12)))
+            .png().toBuffer();
+          composites.push({ input: region, left, top });
+        }
+      }
+      if (composites.length) buf = await sh(buf).composite(composites).png().toBuffer();
+    }
+
+    // Overlay annotations (full-res transparent PNG)
+    if (overlayBase64) {
+      const overlay = Buffer.from(overlayBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+      const ov = await sh(overlay).resize(W, H, { fit: 'fill' }).png().toBuffer();
+      buf = await sh(buf).composite([{ input: ov, left: 0, top: 0 }]).png().toBuffer();
+    }
+
+    const tmpPath = path.join(os.tmpdir(), `ce_annot_${Date.now()}.png`);
+    fs.writeFileSync(tmpPath, buf);
+    return { success: true, tempPath: tmpPath, dataUrl: `data:image/png;base64,${buf.toString('base64')}` };
+  } catch (error) {
+    console.error('applyAnnotations error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Unified image edit pipeline (live editor export)
 ipcMain.handle('image:applyEdit', async (event, { inputPath, outputPath, recipe }) => {
   try {

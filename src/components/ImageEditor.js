@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import WatermarkTool from './WatermarkTool';
+import AnnotationEditor from './AnnotationEditor';
 import './ImageEditor.css';
 
 const DEFAULT_ADJ = {
@@ -265,9 +266,26 @@ function ImageEditor({ initialTool = 'crop' }) {
     { id: 'filter', ic: '🎨', label: 'Filters' },
     { id: 'resize', ic: '📐', label: 'Resize' },
     { id: 'bg', ic: '🪄', label: 'Cutout' },
+    { id: 'annotate', ic: '🖊️', label: 'Markup' },
     { id: 'watermark', ic: '💧', label: 'Mark' },
     { id: 'export', ic: '💾', label: 'Export' },
   ];
+
+  // ---- Annotations: bake overlay + blur regions into the working image ----
+  const doApplyAnnotations = async ({ overlayDataUrl, blurRegions }) => {
+    if (!file || !window.electronAPI) return;
+    setBusy(true); setBusyMsg('Applying annotations…');
+    try {
+      const res = await window.electronAPI.applyAnnotations({ inputPath: file.path, baseDataUrl: working?.dataUrl, overlayBase64: overlayDataUrl, blurRegions });
+      if (!res?.success) throw new Error(res?.error || 'Annotation failed');
+      setFile((f) => ({ ...f, path: res.tempPath, ext: 'png' }));
+      setBase((b) => ({ ...b, dataUrl: res.dataUrl }));
+      setFormat('png');
+      setTool('export');
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally { setBusy(false); }
+  };
 
   // ---- Background removal (local, offline AI) ----
   const [bgDone, setBgDone] = useState(false);
@@ -329,7 +347,11 @@ function ImageEditor({ initialTool = 'crop' }) {
           ))}
         </div>
 
-        {tool === 'watermark' && file ? (
+        {tool === 'annotate' && file && working ? (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <AnnotationEditor imageDataUrl={working.dataUrl} naturalWidth={working.w} naturalHeight={working.h} onApply={doApplyAnnotations} busy={busy} />
+          </div>
+        ) : tool === 'watermark' && file ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
             <h3 style={{ margin: '0 0 4px' }}>Watermark</h3>
             <p className="sub" style={{ color: '#8a8aa5', fontSize: 12, marginTop: 0 }}>Add a text or logo watermark with full positioning, opacity & tiling.</p>
