@@ -92,6 +92,13 @@ function ImageEditor({ initialTool = 'crop' }) {
   const [rounded, setRounded] = useState(0);
   const [exportScale, setExportScale] = useState(1);
   const [exif, setExif] = useState(null);
+  // batch
+  const [batchFiles, setBatchFiles] = useState([]);
+  const [batchFormat, setBatchFormat] = useState('jpeg');
+  const [batchMaxW, setBatchMaxW] = useState('');
+  const [batchQuality, setBatchQuality] = useState(85);
+  const [batchStrip, setBatchStrip] = useState(true);
+  const [batchProg, setBatchProg] = useState({ done: 0, total: 0, running: false });
   const imgRef = useRef(null);
   const totalAngle = ((rot90 + straighten) % 360 + 360) % 360;
 
@@ -283,9 +290,41 @@ function ImageEditor({ initialTool = 'crop' }) {
     { id: 'bg', ic: '🪄', label: 'Cutout' },
     { id: 'annotate', ic: '🖊️', label: 'Markup' },
     { id: 'watermark', ic: '💧', label: 'Mark' },
+    { id: 'batch', ic: '🗂️', label: 'Batch', noFile: true },
     { id: 'info', ic: 'ⓘ', label: 'Info' },
     { id: 'export', ic: '💾', label: 'Export' },
   ];
+
+  // ---- Batch processing ----
+  const selectBatch = async () => {
+    if (!window.electronAPI) return;
+    const result = await window.electronAPI.openFile({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'avif'] }]
+    });
+    if (result.canceled || !result.filePaths.length) return;
+    setBatchFiles(result.filePaths);
+    setBatchProg({ done: 0, total: 0, running: false });
+  };
+  const runBatch = async () => {
+    if (!batchFiles.length || !window.electronAPI) return;
+    setBatchProg({ done: 0, total: batchFiles.length, running: true });
+    let lastDir = '';
+    for (let i = 0; i < batchFiles.length; i++) {
+      const p = batchFiles[i];
+      const dir = p.substring(0, Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')));
+      const nm = p.substring(Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')) + 1).replace(/\.[^/.]+$/, '');
+      const ext = batchFormat === 'jpeg' ? 'jpg' : batchFormat;
+      const outDir = `${dir}/converted`;
+      const outputPath = `${outDir}/${nm}.${ext}`;
+      lastDir = outDir;
+      const recipe = { format: batchFormat, quality: batchQuality, stripMetadata: batchStrip };
+      if (batchMaxW) recipe.resize = { width: parseInt(batchMaxW), fit: 'inside' };
+      try { await window.electronAPI.applyImageEdit({ inputPath: p, outputPath, recipe }); } catch {}
+      setBatchProg({ done: i + 1, total: batchFiles.length, running: i + 1 < batchFiles.length });
+    }
+    if (lastDir) await window.electronAPI.showInFolder(lastDir + '/');
+  };
 
   // ---- EXIF metadata (read in renderer via exifr) ----
   useEffect(() => {
@@ -375,13 +414,39 @@ function ImageEditor({ initialTool = 'crop' }) {
       <div className="ie-body">
         <div className="ie-rail">
           {RAIL.map((r) => (
-            <button key={r.id} className={`ie-rail-btn ${tool === r.id ? 'active' : ''}`} onClick={() => setTool(r.id)} disabled={!file}>
+            <button key={r.id} className={`ie-rail-btn ${tool === r.id ? 'active' : ''}`} onClick={() => setTool(r.id)} disabled={!file && !r.noFile}>
               <span className="ic">{r.ic}</span>{r.label}
             </button>
           ))}
         </div>
 
-        {tool === 'annotate' && file && working ? (
+        {tool === 'batch' ? (
+          <div style={{ flex: 1, overflowY: 'auto', padding: 28, maxWidth: 720 }}>
+            <h2 style={{ margin: '0 0 4px' }}>Batch Convert & Resize</h2>
+            <p className="sub" style={{ color: '#8e8e93', marginTop: 0 }}>Apply the same format, size and quality to many images at once. Results are saved to a “converted” subfolder.</p>
+            <button className="ie-btn" onClick={selectBatch}>📂 Select Images</button>
+            {batchFiles.length > 0 && <span style={{ marginLeft: 12, color: '#aeaeb2', fontSize: 13 }}>{batchFiles.length} image(s) selected</span>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20, maxWidth: 460 }}>
+              <div className="ie-field"><label>Output format</label>
+                <select value={batchFormat} onChange={(e) => setBatchFormat(e.target.value)}>
+                  <option value="jpeg">JPG</option><option value="png">PNG</option>
+                  <option value="webp">WebP</option><option value="avif">AVIF</option><option value="tiff">TIFF</option>
+                </select>
+              </div>
+              <div className="ie-field"><label>Max width (px, optional)</label><input type="number" placeholder="e.g. 1920" value={batchMaxW} onChange={(e) => setBatchMaxW(e.target.value)} /></div>
+            </div>
+            {['jpeg', 'webp', 'avif', 'tiff'].includes(batchFormat) && (
+              <div className="ie-field" style={{ maxWidth: 460 }}><label>Quality <span className="val">{batchQuality}%</span></label><input type="range" min="10" max="100" value={batchQuality} onChange={(e) => setBatchQuality(parseInt(e.target.value))} /></div>
+            )}
+            <label className="ie-check"><input type="checkbox" checked={batchStrip} onChange={(e) => setBatchStrip(e.target.checked)} /> Strip metadata (EXIF/GPS)</label>
+            <button className="ie-btn primary" style={{ marginTop: 8 }} onClick={runBatch} disabled={!batchFiles.length || batchProg.running}>
+              {batchProg.running ? `Processing ${batchProg.done}/${batchProg.total}…` : `⚙️ Process ${batchFiles.length || ''} image(s)`}
+            </button>
+            {batchProg.total > 0 && !batchProg.running && batchProg.done === batchProg.total && (
+              <p className="sub" style={{ marginTop: 12, color: '#30d158' }}>✓ Done — {batchProg.done} image(s) saved to the “converted” subfolder.</p>
+            )}
+          </div>
+        ) : tool === 'annotate' && file && working ? (
           <div style={{ flex: 1, minWidth: 0 }}>
             <AnnotationEditor imageDataUrl={working.dataUrl} naturalWidth={working.w} naturalHeight={working.h} onApply={doApplyAnnotations} busy={busy} />
           </div>
