@@ -792,6 +792,34 @@ class ImageConverter {
       }
       if (onProgress) onProgress(70);
 
+      // 6b) Frame: rounded corners, padding, border (Frame tool)
+      if (recipe.rounded && recipe.rounded > 0) {
+        img = sharp(await img.ensureAlpha().toBuffer(), { failOn: 'none' });
+        const m = await img.metadata();
+        const rr = Math.min(recipe.rounded, Math.floor(Math.min(m.width, m.height) / 2));
+        const mask = Buffer.from(`<svg width="${m.width}" height="${m.height}"><rect x="0" y="0" width="${m.width}" height="${m.height}" rx="${rr}" ry="${rr}"/></svg>`);
+        img = img.composite([{ input: mask, blend: 'dest-in' }]);
+      }
+      if ((recipe.padding && recipe.padding > 0) || (recipe.border && recipe.border > 0)) {
+        img = sharp(await img.toBuffer(), { failOn: 'none' });
+        const pad = Math.max(0, Math.round(recipe.padding || 0));
+        if (pad > 0) {
+          const padColor = recipe.paddingColor || { r: 255, g: 255, b: 255, alpha: 1 };
+          img = sharp(await img.extend({ top: pad, bottom: pad, left: pad, right: pad, background: padColor }).toBuffer(), { failOn: 'none' });
+        }
+        const bw = Math.max(0, Math.round(recipe.border || 0));
+        if (bw > 0) {
+          const bColor = recipe.borderColor || { r: 20, g: 20, b: 20, alpha: 1 };
+          img = sharp(await img.extend({ top: bw, bottom: bw, left: bw, right: bw, background: bColor }).toBuffer(), { failOn: 'none' });
+        }
+      }
+
+      // 6c) Output scale (Retina @2x / @3x)
+      if (recipe.scale && recipe.scale !== 1) {
+        const m = await img.metadata();
+        img = img.resize({ width: Math.round(m.width * recipe.scale), height: Math.round(m.height * recipe.scale), fit: 'fill', kernel: 'lanczos3' });
+      }
+
       // 7) Output format + quality + metadata
       const fmt = (recipe.format || path.extname(outputPath).slice(1) || 'png').toLowerCase();
       const q = recipe.quality || 90;

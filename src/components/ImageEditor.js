@@ -3,6 +3,7 @@ import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import WatermarkTool from './WatermarkTool';
 import AnnotationEditor from './AnnotationEditor';
+import exifr from 'exifr';
 import './ImageEditor.css';
 
 const DEFAULT_ADJ = {
@@ -83,6 +84,14 @@ function ImageEditor({ initialTool = 'crop' }) {
   const [stripMeta, setStripMeta] = useState(true);
 
   const [compareOriginal, setCompareOriginal] = useState(false);
+  // frame + export scale + exif
+  const [pad, setPad] = useState(0);
+  const [padColor, setPadColor] = useState('#ffffff');
+  const [border, setBorder] = useState(0);
+  const [borderColor, setBorderColor] = useState('#1a1a1a');
+  const [rounded, setRounded] = useState(0);
+  const [exportScale, setExportScale] = useState(1);
+  const [exif, setExif] = useState(null);
   const imgRef = useRef(null);
   const totalAngle = ((rot90 + straighten) % 360 + 360) % 360;
 
@@ -193,6 +202,11 @@ function ImageEditor({ initialTool = 'crop' }) {
       grayscale: adj.grayscale, invert: adj.invert, sepia: adj.sepia,
       format, quality, stripMetadata: stripMeta,
     };
+    // frame
+    if (pad > 0) { recipe.padding = pad; recipe.paddingColor = hexToRgb(padColor); }
+    if (border > 0) { recipe.border = border; recipe.borderColor = hexToRgb(borderColor); }
+    if (rounded > 0) recipe.rounded = rounded;
+    if (exportScale && exportScale !== 1) recipe.scale = exportScale;
     // crop -> transformed-natural px
     if (completedCrop && completedCrop.width > 0 && base) {
       const td = rotatedDims(base.naturalWidth, base.naturalHeight, totalAngle);
@@ -265,11 +279,31 @@ function ImageEditor({ initialTool = 'crop' }) {
     { id: 'adjust', ic: '🎚️', label: 'Adjust' },
     { id: 'filter', ic: '🎨', label: 'Filters' },
     { id: 'resize', ic: '📐', label: 'Resize' },
+    { id: 'frame', ic: '🖼️', label: 'Frame' },
     { id: 'bg', ic: '🪄', label: 'Cutout' },
     { id: 'annotate', ic: '🖊️', label: 'Markup' },
     { id: 'watermark', ic: '💧', label: 'Mark' },
+    { id: 'info', ic: 'ⓘ', label: 'Info' },
     { id: 'export', ic: '💾', label: 'Export' },
   ];
+
+  // ---- EXIF metadata (read in renderer via exifr) ----
+  useEffect(() => {
+    if (tool !== 'info' || !file || !window.electronAPI) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await window.electronAPI.readFileAsBuffer(file.path);
+        if (!r?.success) { setExif({}); return; }
+        const bin = atob(r.data);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const data = await exifr.parse(bytes, { tiff: true, exif: true, gps: true }).catch(() => null);
+        if (!cancelled) setExif(data || {});
+      } catch { if (!cancelled) setExif({}); }
+    })();
+    return () => { cancelled = true; };
+  }, [tool, file]);
 
   // ---- Annotations: bake overlay + blur regions into the working image ----
   const doApplyAnnotations = async ({ overlayDataUrl, blurRegions }) => {
@@ -382,8 +416,8 @@ function ImageEditor({ initialTool = 'crop' }) {
                   <img ref={imgRef} src={working.dataUrl} alt="edit" className="ie-preview-img" style={{ filter: filterCss }} />
                 </ReactCrop>
               ) : (
-                <div style={{ position: 'relative' }}>
-                  <img ref={imgRef} src={working.dataUrl} alt="edit" className="ie-preview-img" style={{ filter: filterCss }} />
+                <div style={{ position: 'relative', background: pad ? padColor : 'transparent', padding: pad ? Math.min(pad, 48) : 0, border: border ? `${Math.min(border, 24)}px solid ${borderColor}` : 'none', borderRadius: rounded ? Math.min(rounded, 80) : 0, boxSizing: 'border-box' }}>
+                  <img ref={imgRef} src={working.dataUrl} alt="edit" className="ie-preview-img" style={{ filter: filterCss, borderRadius: rounded ? Math.min(rounded, 80) : 0, display: 'block' }} />
                   {tempOverlay && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', ...tempOverlay }} />}
                 </div>
               )}
@@ -494,6 +528,52 @@ function ImageEditor({ initialTool = 'crop' }) {
               </>
             )}
 
+            {tool === 'frame' && (
+              <>
+                <h3>Frame</h3>
+                <p className="sub">Add padding, a border and rounded corners. Applied on export.</p>
+                <div className="ie-field">
+                  <label>Padding <span className="val">{pad}px</span></label>
+                  <input type="range" min="0" max="200" value={pad} onChange={(e) => setPad(parseInt(e.target.value))} />
+                </div>
+                <div className="ie-row" style={{ alignItems: 'center' }}>
+                  <div className="ie-field" style={{ flex: 2 }}><label>Padding color</label><input type="color" value={padColor} onChange={(e) => setPadColor(e.target.value)} style={{ width: '100%', height: 32, background: 'none', border: 'none' }} /></div>
+                </div>
+                <div className="ie-field">
+                  <label>Border <span className="val">{border}px</span></label>
+                  <input type="range" min="0" max="60" value={border} onChange={(e) => setBorder(parseInt(e.target.value))} />
+                </div>
+                <div className="ie-field"><label>Border color</label><input type="color" value={borderColor} onChange={(e) => setBorderColor(e.target.value)} style={{ width: '100%', height: 32, background: 'none', border: 'none' }} /></div>
+                <div className="ie-field">
+                  <label>Rounded corners <span className="val">{rounded}px</span></label>
+                  <input type="range" min="0" max="200" value={rounded} onChange={(e) => setRounded(parseInt(e.target.value))} />
+                </div>
+                <button className="ie-btn ghost ie-btn-block" onClick={() => { setPad(0); setBorder(0); setRounded(0); }}>Reset frame</button>
+              </>
+            )}
+
+            {tool === 'info' && (
+              <>
+                <h3>Image Info</h3>
+                <p className="sub">Dimensions, format and EXIF metadata.</p>
+                <div style={{ fontSize: 12.5, lineHeight: 1.9, color: '#d8d8de' }}>
+                  <div><b>Size:</b> {base?.naturalWidth} × {base?.naturalHeight}px</div>
+                  <div><b>File:</b> {file?.name}</div>
+                  {exif === null && <div className="sub">Reading metadata…</div>}
+                  {exif && Object.keys(exif).length === 0 && <div className="sub" style={{ marginTop: 8 }}>No EXIF metadata (clean / already stripped).</div>}
+                  {exif && exif.Make && <div><b>Camera:</b> {exif.Make} {exif.Model}</div>}
+                  {exif && exif.LensModel && <div><b>Lens:</b> {exif.LensModel}</div>}
+                  {exif && exif.FNumber && <div><b>Aperture:</b> ƒ/{exif.FNumber}</div>}
+                  {exif && exif.ExposureTime && <div><b>Shutter:</b> {exif.ExposureTime < 1 ? '1/' + Math.round(1 / exif.ExposureTime) : exif.ExposureTime}s</div>}
+                  {exif && exif.ISO && <div><b>ISO:</b> {exif.ISO}</div>}
+                  {exif && exif.FocalLength && <div><b>Focal:</b> {exif.FocalLength}mm</div>}
+                  {exif && exif.DateTimeOriginal && <div><b>Taken:</b> {String(exif.DateTimeOriginal).slice(0, 19).replace('T', ' ')}</div>}
+                  {exif && exif.latitude && <div style={{ color: '#ff9f0a' }}><b>⚠ GPS:</b> {exif.latitude.toFixed(5)}, {exif.longitude.toFixed(5)}</div>}
+                </div>
+                {exif && exif.latitude && <p className="sub" style={{ marginTop: 12, color: '#ff9f0a' }}>This image contains location data. Enable “Strip metadata” in Export to remove it.</p>}
+              </>
+            )}
+
             {tool === 'bg' && (
               <>
                 <h3>Background Removal</h3>
@@ -524,6 +604,14 @@ function ImageEditor({ initialTool = 'crop' }) {
                     <input type="range" min="10" max="100" value={quality} onChange={(e) => setQuality(parseInt(e.target.value))} />
                   </div>
                 )}
+                <div className="ie-field">
+                  <label>Scale (Retina)</label>
+                  <div className="ie-chip-row" style={{ marginBottom: 0 }}>
+                    {[1, 2, 3].map((s) => (
+                      <button key={s} className={`ie-chip ${exportScale === s ? 'active' : ''}`} onClick={() => setExportScale(s)}>@{s}x</button>
+                    ))}
+                  </div>
+                </div>
                 <label className="ie-check"><input type="checkbox" checked={stripMeta} onChange={(e) => setStripMeta(e.target.checked)} /> Strip metadata (EXIF/GPS) — privacy</label>
                 <button className="ie-btn primary ie-btn-block" onClick={doExport} disabled={busy}>💾 Export Image</button>
                 <p className="ie-size-readout">Saved next to the original as “{file?.name?.replace(/\.[^/.]+$/, '')}_edited.{format === 'jpeg' ? 'jpg' : format}”.</p>
@@ -536,6 +624,11 @@ function ImageEditor({ initialTool = 'crop' }) {
       </div>
     </div>
   );
+}
+
+function hexToRgb(hex) {
+  const m = (hex || '#ffffff').replace('#', '');
+  return { r: parseInt(m.substring(0, 2), 16), g: parseInt(m.substring(2, 4), 16), b: parseInt(m.substring(4, 6), 16), alpha: 1 };
 }
 
 function presetFilterCss(a) {
