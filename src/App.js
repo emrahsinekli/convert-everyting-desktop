@@ -55,6 +55,14 @@ function App() {
   // trialDaysLeft: days remaining in the free trial (when not Pro)
   const [licenseStatus, setLicenseStatus] = useState({ checking: true, valid: false, isPro: false, trialDaysLeft: 0 });
   const [licenseInfo, setLicenseInfo] = useState(null);
+  const [updateReady, setUpdateReady] = useState(null); // {version}
+
+  // Auto-update: notify when a new version has been downloaded in the background
+  useEffect(() => {
+    if (!window.electronAPI?.onUpdateDownloaded) return;
+    window.electronAPI.onUpdateDownloaded((info) => setUpdateReady(info || { version: '' }));
+    return () => { window.electronAPI.removeUpdateListeners && window.electronAPI.removeUpdateListeners(); };
+  }, []);
 
   // Decide access on startup: a valid Polar license unlocks Pro; otherwise the
   // user gets a 3-day free trial. The Pro/key screen only appears once the
@@ -498,6 +506,18 @@ function App() {
   return (
     <div className="app">
       <Header />
+
+      {updateReady && (
+        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '14px 18px', boxShadow: '0 12px 40px rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', gap: 14, maxWidth: 360 }}>
+          <span style={{ fontSize: 22 }}>🎉</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Update ready{updateReady.version ? ` (v${updateReady.version})` : ''}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>A new version has been downloaded.</div>
+          </div>
+          <button onClick={() => window.electronAPI.quitAndInstall()} style={{ background: 'linear-gradient(90deg,var(--primary),#6f6ce8)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Restart</button>
+          <button onClick={() => setUpdateReady(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>×</button>
+        </div>
+      )}
 
       {!licenseStatus.isPro && (
         <div className="trial-banner">

@@ -22,8 +22,8 @@ let licenseManager;
 let watchManager;
 
 // Auto-updater configuration
-autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoDownload = true;            // download updates in the background
+autoUpdater.autoInstallOnAppQuit = true;    // silently install on next quit
 
 // Initialize converters
 const converters = {
@@ -1568,6 +1568,13 @@ function setupAutoUpdater() {
       });
     }
   });
+
+  // Automatically check for updates on launch (packaged app only), then every 6h.
+  if (app.isPackaged) {
+    const check = () => autoUpdater.checkForUpdates().catch((e) => console.error('update check:', e.message));
+    setTimeout(check, 4000);
+    setInterval(check, 6 * 60 * 60 * 1000);
+  }
 }
 
 // Check for updates
