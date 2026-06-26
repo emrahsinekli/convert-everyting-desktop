@@ -19,6 +19,7 @@ const store = new Store();
 let mainWindow;
 let dependencyManager;
 let licenseManager;
+let watchManager;
 
 // Auto-updater configuration
 autoUpdater.autoDownload = false;
@@ -86,6 +87,20 @@ app.whenReady().then(async () => {
 
   createWindow();
 
+  // Watched folders (auto-convert) — restore + start
+  try {
+    const WatchManager = require('./watcher');
+    const { Notification } = require('electron');
+    watchManager = new WatchManager(
+      store,
+      (input, output, fmt) => converters.image.convert(input, output, fmt, {}),
+      (title, body) => { try { new Notification({ title, body }).show(); } catch (e) {} }
+    );
+    watchManager.startAll();
+  } catch (e) {
+    console.error('WatchManager init failed:', e.message);
+  }
+
   // Setup auto-updater events
   setupAutoUpdater();
 
@@ -140,6 +155,59 @@ ipcMain.handle('license:getInfo', async () => {
 ipcMain.handle('license:remove', async () => {
   await licenseManager.deactivateLicenseOnline();
   return licenseManager.removeLicense();
+});
+
+// ============ WATCHED FOLDERS ============
+
+ipcMain.handle('watch:list', () => (watchManager ? watchManager.list() : []));
+
+ipcMain.handle('watch:add', async (event, { types, outFormat, subfolder }) => {
+  const res = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+  if (res.canceled || !res.filePaths.length) return { canceled: true };
+  const entry = watchManager.add({ folder: res.filePaths[0], types, outFormat, subfolder });
+  return { canceled: false, entry };
+});
+
+ipcMain.handle('watch:remove', (event, { id }) => { if (watchManager) watchManager.remove(id); return { success: true }; });
+
+ipcMain.handle('watch:setEnabled', (event, { id, enabled }) => {
+  if (watchManager) watchManager.setEnabled(id, enabled);
+  return { success: true };
+});
+
+// ============ FINDER QUICK ACTIONS ============
+
+ipcMain.handle('quickactions:install', async () => {
+  try {
+    const qa = require('./quickactions');
+    const exePath = app.getPath('exe');
+    const cliPath = path.join(__dirname, 'cli-convert.js');
+    const installed = qa.install(exePath, cliPath);
+    return { success: true, installed };
+  } catch (e) {
+    console.error('quickactions install error:', e);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('quickactions:uninstall', async () => {
+  try {
+    const qa = require('./quickactions');
+    return { success: true, removed: qa.uninstall() };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('quickactions:status', () => {
+  try {
+    const qa = require('./quickactions');
+    const dir = require('path').join(require('os').homedir(), 'Library', 'Services');
+    const installed = qa.ACTIONS.filter((a) => fs.existsSync(require('path').join(dir, `${a.name}.workflow`)));
+    return { installed: installed.length, total: qa.ACTIONS.length };
+  } catch (e) {
+    return { installed: 0, total: 3 };
+  }
 });
 
 // ============ FREE TRIAL HANDLERS ============

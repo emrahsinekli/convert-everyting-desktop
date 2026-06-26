@@ -13,6 +13,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTrialStatus: () => ipcRenderer.invoke('trial:get'),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 
+  // Watched folders (auto-convert)
+  watchList: () => ipcRenderer.invoke('watch:list'),
+  watchAdd: (params) => ipcRenderer.invoke('watch:add', params),
+  watchRemove: (params) => ipcRenderer.invoke('watch:remove', params),
+  watchSetEnabled: (params) => ipcRenderer.invoke('watch:setEnabled', params),
+
+  // Finder Quick Actions
+  quickActionsInstall: () => ipcRenderer.invoke('quickactions:install'),
+  quickActionsUninstall: () => ipcRenderer.invoke('quickactions:uninstall'),
+  quickActionsStatus: () => ipcRenderer.invoke('quickactions:status'),
+
   // Dialog operations
   openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
   saveFile: (options) => ipcRenderer.invoke('dialog:saveFile', options),

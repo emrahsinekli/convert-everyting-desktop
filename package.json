@@ -101,6 +101,7 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
+    "chokidar": "^3.6.0",
     "docx": "^8.5.0",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.7.3",

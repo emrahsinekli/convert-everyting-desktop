@@ -10,6 +10,7 @@ import HistoryPanel from './components/HistoryPanel';
 import PDFToolsPanel from './components/PDFToolsPanel';
 import VideoToolsPanel from './components/VideoToolsPanel';
 import ImageEditor from './components/ImageEditor';
+import WatchFoldersPanel from './components/WatchFoldersPanel';
 import AudioToolsPanel from './components/AudioToolsPanel';
 import GIFToolsPanel from './components/GIFToolsPanel';
 import ArchiveToolsPanel from './components/ArchiveToolsPanel';
@@ -667,6 +668,10 @@ function App() {
 
           {activeTab === 'tools-image' && (
             <ImageEditor />
+          )}
+
+          {activeTab === 'tools-watch' && (
+            <WatchFoldersPanel />
           )}
 
           {activeTab === 'tools-audio' && (
