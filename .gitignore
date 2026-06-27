@@ -40,7 +40,6 @@ tools/whisper/
 temp/
 
 # Polar credentials (SECRET - never commit!)
-resources/polar.config.json
 
 # Obsolete Firebase admin tooling + service account key (SECRET - never commit!)
 admin/

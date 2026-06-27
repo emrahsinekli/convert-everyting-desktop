@@ -3,9 +3,8 @@ import licenseService from '../services/licenseService';
 import logo from '../assets/logo.png';
 import './LicenseActivation.css';
 
-// TODO: Set this to your real Polar product/checkout link before release.
-// Example: https://polar.sh/emrahsinekli/products/<PRODUCT_ID> or a checkout URL.
-const PURCHASE_URL = 'https://polar.sh/emrahsinekli';
+// Polar hosted checkout link for the Pro (Lifetime) product.
+const PURCHASE_URL = 'https://buy.polar.sh/polar_cl_UmwFpfGR5eiY8Hcra5pqnSsZKEYfqz2wiAPBf3t8wni';
 
 function LicenseActivation({ onActivated, trialExpired }) {
   const [licenseKey, setLicenseKey] = useState('');
