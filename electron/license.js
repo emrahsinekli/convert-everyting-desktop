@@ -53,7 +53,9 @@ class LicenseManager {
   }
 
   isConfigured() {
-    return Boolean(this.config.accessToken && this.config.organizationId);
+    // Secure mode: the public customer-portal endpoints only need the org id
+    // (no secret token shipped in the app).
+    return Boolean(this.config.organizationId);
   }
 
   apiBase() {
@@ -67,15 +69,18 @@ class LicenseManager {
     return new Promise((resolve, reject) => {
       const data = JSON.stringify(body);
       const url = new URL(this.apiBase() + endpoint);
+      const headers = {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      };
+      // Public customer-portal endpoints need no auth; only attach a token if
+      // one is explicitly configured (legacy/org-scoped mode).
+      if (this.config.accessToken) headers['Authorization'] = `Bearer ${this.config.accessToken}`;
       const options = {
         method: 'POST',
         hostname: url.hostname,
         path: url.pathname,
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(data),
-          'Authorization': `Bearer ${this.config.accessToken}`
-        }
+        headers
       };
 
       const req = https.request(options, (res) => {
@@ -229,7 +234,7 @@ class LicenseManager {
     const sys = this.getSystemInfo();
 
     try {
-      const res = await this.polarRequest('/v1/license-keys/activate', {
+      const res = await this.polarRequest('/v1/customer-portal/license-keys/activate', {
         key: licenseKey,
         organization_id: this.config.organizationId,
         label: `${sys.hostname} (${machineId})`,
@@ -282,7 +287,7 @@ class LicenseManager {
       };
       if (activationId) body.activation_id = activationId;
 
-      const res = await this.polarRequest('/v1/license-keys/validate', body);
+      const res = await this.polarRequest('/v1/customer-portal/license-keys/validate', body);
 
       if (res.status === 200) {
         const status = res.body && res.body.status;
@@ -313,7 +318,7 @@ class LicenseManager {
     }
 
     try {
-      await this.polarRequest('/v1/license-keys/deactivate', {
+      await this.polarRequest('/v1/customer-portal/license-keys/deactivate', {
         key: local.key,
         organization_id: this.config.organizationId,
         activation_id: local.activationId

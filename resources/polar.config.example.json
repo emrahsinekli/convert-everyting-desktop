@@ -1,6 +1,5 @@
 {
-  "_comment": "Copy this file to polar.config.json and fill in your real Polar credentials. Use server: 'sandbox' while testing, 'production' when live.",
-  "accessToken": "polar_oat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "_comment": "Copy to polar.config.json. Secure mode uses Polar's public customer-portal endpoints, so NO secret token is needed — only your organization id. Use server 'sandbox' for testing, 'production' when live.",
   "organizationId": "00000000-0000-0000-0000-000000000000",
   "server": "production"
 }
