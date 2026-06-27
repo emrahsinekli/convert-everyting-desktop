@@ -144,10 +144,18 @@ class LicenseManager {
     return path.join(userDataPath, this.LICENSE_FILE);
   }
 
+  // Encryption key is derived from the secret AND this machine's fingerprint,
+  // so an encrypted blob (license.dat / trial file) cannot be copied to another
+  // Mac, and forging requires per-machine derivation. Online validation remains
+  // the source of truth for whether a key is genuinely paid.
+  cryptoKey() {
+    const mid = this.getMachineId();
+    return crypto.scryptSync(this.SECRET_KEY + ':' + mid, 'ce-' + mid, 32);
+  }
+
   encrypt(text) {
     const iv = crypto.randomBytes(16);
-    const key = crypto.scryptSync(this.SECRET_KEY, 'salt', 32);
-    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    const cipher = crypto.createCipheriv('aes-256-cbc', this.cryptoKey(), iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     return iv.toString('hex') + ':' + encrypted;
@@ -157,8 +165,7 @@ class LicenseManager {
     try {
       const [ivHex, encrypted] = encryptedText.split(':');
       const iv = Buffer.from(ivHex, 'hex');
-      const key = crypto.scryptSync(this.SECRET_KEY, 'salt', 32);
-      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+      const decipher = crypto.createDecipheriv('aes-256-cbc', this.cryptoKey(), iv);
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       return decrypted;

@@ -215,15 +215,40 @@ ipcMain.handle('quickactions:status', () => {
 const TRIAL_DAYS = 3;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
-// Trial status. The trial clock starts on first launch and is stored in
-// electron-store (userData). Returns how many days are left and whether it
-// has expired. A valid Polar license always supersedes the trial.
+// Trial status. The trial clock is machine-bound and stored redundantly in
+// BOTH electron-store and an encrypted dotfile in userData, so deleting one
+// (e.g. config.json) does NOT reset the trial. The earliest recorded start
+// for THIS machine wins. A valid Polar license always supersedes the trial.
+function trialDotfile() {
+  return path.join(app.getPath('userData'), '.ce_trial');
+}
+function readTrialDotfile(machineId) {
+  try {
+    const raw = fs.readFileSync(trialDotfile(), 'utf8');
+    const obj = JSON.parse(licenseManager.decrypt(raw) || '{}');
+    if (obj && obj.machineId === machineId && typeof obj.start === 'number') return obj.start;
+  } catch (e) {}
+  return null;
+}
+function writeTrialDotfile(machineId, start) {
+  try { fs.writeFileSync(trialDotfile(), licenseManager.encrypt(JSON.stringify({ machineId, start })), 'utf8'); } catch (e) {}
+}
 ipcMain.handle('trial:get', () => {
-  let start = store.get('trialStartedAt');
-  if (!start) {
-    start = Date.now();
-    store.set('trialStartedAt', start);
-  }
+  const machineId = licenseManager.getMachineId();
+  // collect candidate start times bound to this machine
+  const candidates = [];
+  const stored = store.get('trialStartedAt');
+  const storedMachine = store.get('trialMachine');
+  if (typeof stored === 'number' && storedMachine === machineId) candidates.push(stored);
+  const fromFile = readTrialDotfile(machineId);
+  if (fromFile) candidates.push(fromFile);
+
+  let start = candidates.length ? Math.min(...candidates) : Date.now();
+  // re-persist to both stores (heals a deleted/!matching copy)
+  store.set('trialStartedAt', start);
+  store.set('trialMachine', machineId);
+  writeTrialDotfile(machineId, start);
+
   const elapsed = Date.now() - start;
   const remaining = Math.max(0, TRIAL_MS - elapsed);
   return {
@@ -1468,7 +1493,7 @@ ipcMain.handle('formats:getAll', async () => {
     audio: [
       // All supported audio output formats
       'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma',
-      'opus', 'aiff', 'ac3', 'amr', 'caf', 'mp2', 'au'
+      'opus', 'aiff', 'ac3', 'caf', 'mp2', 'au'
     ],
     image: [
       // Common formats
@@ -1653,14 +1678,14 @@ function getSupportedOutputFormats(inputType, inputFormat) {
       ],
       audio: [
         'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma',
-        'opus', 'aiff', 'ac3', 'amr', 'caf', 'mp2', 'au'
+        'opus', 'aiff', 'ac3', 'caf', 'mp2', 'au'
       ],
       transcription: ['txt', 'srt', 'vtt']
     },
     audio: {
       audio: [
         'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma',
-        'opus', 'aiff', 'ac3', 'amr', 'caf', 'mp2', 'au'
+        'opus', 'aiff', 'ac3', 'caf', 'mp2', 'au'
       ],
       transcription: ['txt', 'srt', 'vtt']
     },

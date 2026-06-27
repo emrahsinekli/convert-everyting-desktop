@@ -96,7 +96,18 @@ class TranscriptionConverter {
         '-pp',          // print progress
       ];
       if (onProgress) onProgress(35);
-      const whisper = spawn(this.getWhisperPath(), args);
+      // ggml's compute backend is a separate .so that it dlopen()s. The Homebrew
+      // build hardcodes /opt/homebrew/...; on a clean Mac that's absent, so we
+      // point GGML_BACKEND_PATH at our bundled CPU backend (single .so file).
+      // The m1 build runs on every Apple Silicon chip; pick a tuned one if present.
+      const libDir = path.join(path.dirname(this.getWhisperPath()), '..', 'lib');
+      const cpuModel = (os.cpus()[0] && os.cpus()[0].model) || '';
+      let cpuSo = 'libggml-cpu-apple_m1.so';
+      if (/M4/.test(cpuModel) && fs.existsSync(path.join(libDir, 'libggml-cpu-apple_m4.so'))) cpuSo = 'libggml-cpu-apple_m4.so';
+      else if (/M2|M3/.test(cpuModel) && fs.existsSync(path.join(libDir, 'libggml-cpu-apple_m2_m3.so'))) cpuSo = 'libggml-cpu-apple_m2_m3.so';
+      const whisper = spawn(this.getWhisperPath(), args, {
+        env: { ...process.env, GGML_BACKEND_PATH: path.join(libDir, cpuSo) },
+      });
       let stderr = '';
       whisper.stderr.on('data', (data) => {
         stderr += data.toString();

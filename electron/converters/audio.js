@@ -28,7 +28,7 @@ class AudioConverter {
     // Output audio formats (all supported with cross-platform compatible codecs)
     this.supportedOutputFormats = [
       'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma',
-      'opus', 'aiff', 'ac3', 'amr', 'caf', 'mp2', 'au'
+      'opus', 'aiff', 'ac3', 'caf', 'mp2', 'au'
     ];
   }
 

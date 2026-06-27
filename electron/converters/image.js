@@ -14,13 +14,13 @@ class ImageConverter {
       // RAW camera formats (requires libraw)
       'raw', 'cr2', 'nef', 'arw', 'dng', 'orf', 'rw2', 'pef', 'srw',
       // Other formats
-      'jfif', 'jxl', 'psd', 'tga', 'eps'
+      'jfif', 'jxl', 'psd', 'eps'
     ];
     // Output formats - what we can reliably write
     // SVG added via potrace for raster-to-vector conversion
     this.supportedOutputFormats = [
       'png', 'jpg', 'jpeg', 'webp', 'gif', 'tiff', 'tif',
-      'ico', 'avif', 'bmp', 'svg'
+      'ico', 'icns', 'avif', 'svg'
     ];
   }
 
@@ -111,18 +111,6 @@ class ImageConverter {
           await this.convertToSvg(inputPath, outputPath, options);
           if (onProgress) onProgress(100);
           return { outputPath, success: true };
-        case 'jxl':
-          // JPEG XL - experimental in Sharp
-          pipeline = pipeline.jpeg({ quality: quality }); // Fallback to JPEG
-          break;
-        case 'tga':
-          // TGA - convert to PNG as raw format
-          pipeline = pipeline.raw();
-          break;
-        case 'bmp':
-          // BMP - use raw output with custom header
-          pipeline = pipeline.png(); // Fallback to PNG, rename handles extension
-          break;
         case 'ico':
           // For ICO, resize to common icon sizes
           await this.createIco(inputPath, outputPath, options);

@@ -86,8 +86,10 @@ function App() {
         }
       } catch (error) {
         console.error('Access check failed:', error);
-        // On error, fall back to allowing the trial rather than locking out
-        setLicenseStatus({ checking: false, valid: true, isPro: false, trialDaysLeft: 0 });
+        // Fail CLOSED: never grant access just because a check errored.
+        // A legitimate licensed user is served from the local cache (no network
+        // needed), so the error path only hits genuine problems → show paywall.
+        setLicenseStatus({ checking: false, valid: false, isPro: false, trialDaysLeft: 0 });
       }
     };
 
