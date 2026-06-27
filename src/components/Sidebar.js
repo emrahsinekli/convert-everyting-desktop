@@ -51,6 +51,7 @@ function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
         { id: 'tools-audio', label: 'Audio Tools', icon: '🎵' },
         { id: 'tools-gif', label: 'GIF Tools', icon: '🎞️' },
         { id: 'tools-pdf', label: 'PDF Tools', icon: '📄' },
+        { id: 'tools-tts', label: 'Text to Speech', icon: '🔊' },
         { id: 'tools-watch', label: 'Automation', icon: '⚡' }
       ]
     },

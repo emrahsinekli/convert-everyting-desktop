@@ -1,6 +1,6 @@
 {
   "name": "convert-everything",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Convert Everything to Everything - Universal File Converter",
   "main": "electron/main.js",
   "scripts": {

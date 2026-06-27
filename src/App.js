@@ -11,6 +11,7 @@ import PDFToolsPanel from './components/PDFToolsPanel';
 import VideoToolsPanel from './components/VideoToolsPanel';
 import ImageEditor from './components/ImageEditor';
 import WatchFoldersPanel from './components/WatchFoldersPanel';
+import TextToSpeechPanel from './components/TextToSpeechPanel';
 import AudioToolsPanel from './components/AudioToolsPanel';
 import GIFToolsPanel from './components/GIFToolsPanel';
 import ArchiveToolsPanel from './components/ArchiveToolsPanel';
@@ -56,6 +57,7 @@ function App() {
   const [licenseStatus, setLicenseStatus] = useState({ checking: true, valid: false, isPro: false, trialDaysLeft: 0 });
   const [licenseInfo, setLicenseInfo] = useState(null);
   const [updateReady, setUpdateReady] = useState(null); // {version}
+  const [forcePaywall, setForcePaywall] = useState(false); // in-app "Upgrade" during trial
 
   // Auto-update: notify when a new version has been downloaded in the background
   useEffect(() => {
@@ -73,7 +75,7 @@ function App() {
         const result = await licenseService.checkLicense();
         if (result.valid) {
           setLicenseInfo(result);
-          setLicenseStatus({ checking: false, valid: true, isPro: true, trialDaysLeft: 0 });
+          setLicenseStatus({ checking: false, valid: true, isPro: true, trialDaysLeft: 0 }); setForcePaywall(false);
           return;
         }
         const trial = await licenseService.getTrialStatus();
@@ -498,14 +500,20 @@ function App() {
     );
   }
 
-  // Show the Pro/key screen only once the free trial has expired
-  if (!licenseStatus.valid) {
-    return <LicenseActivation onActivated={handleLicenseActivated} trialExpired={true} />;
+  // Paywall: when the trial has expired (forced) OR the user opened Upgrade (closable)
+  if (!licenseStatus.valid || forcePaywall) {
+    return (
+      <LicenseActivation
+        onActivated={handleLicenseActivated}
+        trialExpired={!licenseStatus.valid}
+        onClose={licenseStatus.valid ? () => setForcePaywall(false) : null}
+      />
+    );
   }
 
   return (
     <div className="app">
-      <Header />
+      <Header licenseStatus={licenseStatus} onUpgrade={() => setForcePaywall(true)} />
 
       {updateReady && (
         <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '14px 18px', boxShadow: '0 12px 40px rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', gap: 14, maxWidth: 360 }}>
@@ -519,16 +527,18 @@ function App() {
         </div>
       )}
 
-      {!licenseStatus.isPro && (
+      {!licenseStatus.isPro && licenseStatus.valid && (
         <div className="trial-banner">
           <span className="trial-banner-text">
-            🎁 Ücretsiz deneme — {licenseStatus.trialDaysLeft} gün kaldı
+            {licenseStatus.trialDaysLeft > 0
+              ? `✨ Free trial — ${licenseStatus.trialDaysLeft} ${licenseStatus.trialDaysLeft === 1 ? 'day' : 'days'} left`
+              : '✨ Free trial'}
           </span>
           <button
             className="trial-banner-btn"
-            onClick={() => setLicenseStatus((s) => ({ ...s, valid: false }))}
+            onClick={() => setForcePaywall(true)}
           >
-            Pro'ya Geç
+            Upgrade to Pro
           </button>
           <style>{`
             .trial-banner {
@@ -692,6 +702,10 @@ function App() {
 
           {activeTab === 'tools-watch' && (
             <WatchFoldersPanel />
+          )}
+
+          {activeTab === 'tools-tts' && (
+            <TextToSpeechPanel />
           )}
 
           {activeTab === 'tools-audio' && (

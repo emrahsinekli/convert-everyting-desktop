@@ -5,145 +5,95 @@ import './LicenseActivation.css';
 
 // Polar hosted checkout link for the Pro (Lifetime) product.
 const PURCHASE_URL = 'https://buy.polar.sh/polar_cl_UmwFpfGR5eiY8Hcra5pqnSsZKEYfqz2wiAPBf3t8wni';
+const PRICE = '$29.99';
 
-function LicenseActivation({ onActivated, trialExpired }) {
+const FEATURES = [
+  'All converters: image, video, audio, PDF, documents',
+  'AI background removal & live image editor',
+  'Speech-to-text transcription & text-to-speech',
+  'Batch processing, watched folders & Finder actions',
+  '100% offline & private — nothing leaves your Mac',
+  'One-time payment · lifetime updates',
+];
+
+function LicenseActivation({ onActivated, trialExpired, onClose }) {
   const [licenseKey, setLicenseKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // Normalize the key as the user types: uppercase, keep alphanumerics + dashes
-  const formatLicenseKey = (value) => {
-    return value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase();
-  };
+  const [showKey, setShowKey] = useState(false);
 
   const handleInputChange = (e) => {
-    const formatted = formatLicenseKey(e.target.value);
-    setLicenseKey(formatted);
-    setError('');
-    setSuccess('');
+    setLicenseKey(e.target.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase());
+    setError(''); setSuccess('');
   };
-
   const isKeyComplete = (key) => key.replace(/-/g, '').length >= 8;
 
   const handleActivate = async () => {
-    if (!isKeyComplete(licenseKey)) {
-      setError('Please enter a valid license key');
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-    setSuccess('');
-
+    if (!isKeyComplete(licenseKey)) { setError('Please enter a valid license key'); return; }
+    setIsLoading(true); setError(''); setSuccess('');
     try {
       const result = await licenseService.activateLicense(licenseKey);
-
       if (result.success) {
-        setSuccess(result.message);
-        setTimeout(() => {
-          onActivated && onActivated(result);
-        }, 1500);
+        setSuccess(result.message || 'Activated! Welcome to Pro 🎉');
+        setTimeout(() => onActivated && onActivated(result), 1200);
       } else {
         setError(result.error || 'Activation failed');
       }
     } catch (err) {
       setError('An error occurred: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleActivate();
-    }
+    } finally { setIsLoading(false); }
   };
 
   return (
     <div className="license-activation-overlay">
-      <div className="license-activation-modal">
-        <div className="license-header">
-          <div className="license-logo">
-            <img src={logo} alt="Convert Everything" className="license-logo-image" />
-          </div>
-          <h1>Convert Everything</h1>
-          <p className="license-subtitle">
-            {trialExpired ? 'Deneme süreniz doldu' : 'Pro Lisans'}
-          </p>
+      <div className="paywall">
+        {onClose && (
+          <button className="paywall-close" onClick={onClose} title="Continue trial">×</button>
+        )}
+
+        <img src={logo} alt="" className="paywall-logo" />
+        <h1 className="paywall-title">{trialExpired ? 'Your free trial has ended' : 'Unlock Convert Everything Pro'}</h1>
+        <p className="paywall-sub">
+          {trialExpired
+            ? 'Upgrade to keep converting — one payment, yours forever.'
+            : 'Everything unlocked. One payment, yours forever.'}
+        </p>
+
+        <ul className="paywall-features">
+          {FEATURES.map((f) => <li key={f}><span className="pf-check">✓</span>{f}</li>)}
+        </ul>
+
+        <div className="paywall-price">
+          <span className="pp-amount">{PRICE}</span>
+          <span className="pp-meta">one-time · lifetime</span>
         </div>
 
-        <div className="license-content">
-          {trialExpired && (
-            <p className="license-info">
-              3 günlük ücretsiz deneme süreniz sona erdi. Tüm özellikleri kullanmaya
-              devam etmek için Pro'ya geçin veya lisans anahtarınızı girin.
-            </p>
-          )}
+        <button className="paywall-cta" onClick={() => licenseService.openExternal(PURCHASE_URL)}>
+          Get Pro — {PRICE}
+        </button>
 
-          <button
-            className="activate-btn"
-            style={{ marginBottom: 18, background: 'linear-gradient(90deg,#f6ad55,#ed8936)' }}
-            onClick={() => licenseService.openExternal(PURCHASE_URL)}
-          >
-            ⭐ Pro Satın Al
-          </button>
-
-          <p className="license-info" style={{ fontSize: 13, opacity: 0.8 }}>
-            Lisans anahtarınız varsa aşağıya girin:
-          </p>
-
-          <div className="license-input-group">
-            <label htmlFor="licenseKey">License Key</label>
+        {!showKey ? (
+          <button className="paywall-haskey" onClick={() => setShowKey(true)}>I already have a license key</button>
+        ) : (
+          <div className="paywall-key">
             <input
-              id="licenseKey"
-              type="text"
-              value={licenseKey}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-              placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
-              maxLength={64}
-              disabled={isLoading}
-              className={error ? 'error' : success ? 'success' : ''}
-              autoFocus
+              type="text" value={licenseKey} onChange={handleInputChange}
+              onKeyDown={(e) => e.key === 'Enter' && handleActivate()}
+              placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" maxLength={64}
+              disabled={isLoading} className={error ? 'error' : success ? 'success' : ''} autoFocus
             />
+            <button className="paywall-activate" onClick={handleActivate} disabled={isLoading || !isKeyComplete(licenseKey)}>
+              {isLoading ? 'Verifying…' : 'Activate'}
+            </button>
           </div>
+        )}
 
-          {error && (
-            <div className="license-message error">
-              <span className="message-icon">!</span>
-              {error}
-            </div>
-          )}
+        {error && <div className="paywall-msg error">{error}</div>}
+        {success && <div className="paywall-msg success">{success}</div>}
 
-          {success && (
-            <div className="license-message success">
-              <span className="message-icon">OK</span>
-              {success}
-            </div>
-          )}
-
-          <button
-            className="activate-btn"
-            onClick={handleActivate}
-            disabled={isLoading || !isKeyComplete(licenseKey)}
-          >
-            {isLoading ? (
-              <>
-                <span className="spinner"></span>
-                Verifying...
-              </>
-            ) : (
-              'Activate License'
-            )}
-          </button>
-        </div>
-
-        <div className="license-footer">
-          <p>For license and support:</p>
-          <a href="mailto:emrahsinekli@gmail.com">
-            emrahsinekli@gmail.com
-          </a>
+        <div className="paywall-footer">
+          After purchase you'll receive a license key by email. Support: <a href="mailto:emrahsinekli@gmail.com">emrahsinekli@gmail.com</a>
         </div>
       </div>
     </div>

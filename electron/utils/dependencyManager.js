@@ -26,17 +26,9 @@ class DependencyManager {
       fs.mkdirSync(this.modelsDir, { recursive: true });
     }
 
-    // Whisper.cpp download URLs (platform-specific)
-    const whisperUrls = {
-      win32: 'https://github.com/ggerganov/whisper.cpp/releases/download/v1.5.4/whisper-bin-x64.zip',
-      darwin: 'https://github.com/ggerganov/whisper.cpp/releases/download/v1.5.4/whisper-bin-x64-macos.zip',
-      linux: 'https://github.com/ggerganov/whisper.cpp/releases/download/v1.5.4/whisper-bin-x64.zip'
-    };
-    this.whisperCppUrl = whisperUrls[this.platform] || whisperUrls.linux;
-    this.whisperModelUrl = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
-
-    // Executable name (platform-specific)
-    this.whisperExeName = this.isWindows ? 'main.exe' : 'main';
+    // NOTE: Whisper (speech-to-text) is now BUNDLED inside the app
+    // (resources/bin/whisper-macos + resources/models/ggml-base.bin) and signed
+    // with the app. The old download-on-demand flow was removed.
 
     this.dependencies = {
       ffmpeg: {
@@ -62,40 +54,22 @@ class DependencyManager {
       bundled: true
     };
 
-    // Check Whisper.cpp
-    const whisperExe = path.join(this.binDir, this.whisperExeName);
-    const whisperModel = path.join(this.modelsDir, 'ggml-base.bin');
-    const whisperInstalled = fs.existsSync(whisperExe) && fs.existsSync(whisperModel);
-
+    // Whisper is bundled with the app
     results.whisper = {
       ...this.dependencies.whisper,
-      installed: whisperInstalled,
-      bundled: false
+      installed: true,
+      bundled: true
     };
 
     return results;
   }
 
-  // Check if whisper is ready to use
-  isWhisperReady() {
-    const whisperExe = path.join(this.binDir, this.whisperExeName);
-    const whisperModel = path.join(this.modelsDir, 'ggml-base.bin');
-    return fs.existsSync(whisperExe) && fs.existsSync(whisperModel);
-  }
-
-  // Get whisper executable path
-  getWhisperPath() {
-    return path.join(this.binDir, this.whisperExeName);
-  }
-
-  // Get whisper model path
-  getWhisperModelPath() {
-    return path.join(this.modelsDir, 'ggml-base.bin');
-  }
+  isWhisperReady() { return true; }
 
   async installDependency(depName, onProgress) {
     if (depName === 'whisper') {
-      return await this.installWhisperCpp(onProgress);
+      // Bundled — nothing to download
+      return { success: true, alreadyInstalled: true, message: 'Whisper is bundled with the app' };
     }
     return { success: false, message: 'Unknown dependency' };
   }
