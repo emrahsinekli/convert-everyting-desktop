@@ -48,3 +48,18 @@ if (fs.existsSync(binDir)) {
 }
 
 console.log('[setup-mac-natives] installed self-contained poppler into', dest);
+
+// --- Whisper model (too large for git; fetched here, bundled into the .app) ---
+const { execSync } = require('child_process');
+const modelPath = path.join(root, 'resources', 'models', 'ggml-base.bin');
+const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
+try {
+  if (!fs.existsSync(modelPath) || fs.statSync(modelPath).size < 100 * 1024 * 1024) {
+    fs.mkdirSync(path.dirname(modelPath), { recursive: true });
+    console.log('[setup-mac-natives] downloading Whisper model (ggml-base, ~142MB)…');
+    execSync(`curl -fL --retry 3 -o "${modelPath}" "${MODEL_URL}"`, { stdio: 'inherit' });
+    console.log('[setup-mac-natives] Whisper model ready');
+  }
+} catch (e) {
+  console.warn('[setup-mac-natives] Whisper model download failed (transcription will be unavailable):', e.message);
+}

@@ -49,3 +49,6 @@ admin/
 nul
 resourcesbinqpdf.zip
 test-output.mp3
+
+# Whisper model (large, fetched by setup-mac-natives.js, bundled into .app)
+resources/models/ggml-*.bin
