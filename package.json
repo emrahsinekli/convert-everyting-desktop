@@ -23,7 +23,8 @@
     "publish": {
       "provider": "github",
       "owner": "emrahsinekli",
-      "repo": "convert-everything-releases"
+      "repo": "convert-everything-releases",
+      "releaseType": "release"
     },
     "files": [
       "build/**/*",

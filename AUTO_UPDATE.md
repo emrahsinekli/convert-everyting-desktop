@@ -37,13 +37,18 @@ every user's app can fetch updates with no token and no access to your code.
 
    I can wire this up the moment you have the certificate.
 
+> ✅ Already done for you: the public repo `convert-everything-releases` exists,
+> and **v1.0.0 is published** as the first release (dmg + zip + latest-mac.yml).
+> `releaseType: release` means future `npm run release` runs publish directly
+> (no draft to un-hide).
+
 ## Publishing a new version (every update)
 
 1. Bump the version in `package.json` (e.g. `1.0.0` → `1.0.1`).
-2. Run:
+2. Run (the token comes straight from your logged-in `gh`):
 
    ```bash
-   export GH_TOKEN=ghp_...
+   export GH_TOKEN=$(gh auth token)
    npm run release
    ```
 
