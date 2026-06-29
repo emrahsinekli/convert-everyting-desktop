@@ -80,6 +80,7 @@
         "nsis"
       ],
       "icon": "public/icon.ico",
+      "artifactName": "Convert-Everything-Setup-${version}.${ext}",
       "signAndEditExecutable": false
     },
     "nsis": {
