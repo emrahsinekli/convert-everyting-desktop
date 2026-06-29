@@ -9,7 +9,7 @@
     "electron-start": "node run-electron.js",
     "build": "react-scripts build",
     "electron-build": "npm run build && electron-builder",
-    "release": "npm run build && electron-builder --mac --arm64 --publish always",
+    "release": "npm run build && electron-builder --win --publish always",
     "postinstall": "electron-builder install-app-deps && node scripts/setup-mac-natives.js"
   },
   "author": "Emrah Sinekli <emrahsinekli@gmail.com>",
@@ -42,14 +42,12 @@
       "!node_modules/**/example/**",
       "!node_modules/**/examples/**",
       "!node_modules/**/docs/**",
-      "!node_modules/ffprobe-static/bin/win32/**",
       "!node_modules/ffprobe-static/bin/linux/**",
-      "!node_modules/ffprobe-static/bin/darwin/x64/**",
-      "!node_modules/pdf-poppler/lib/win/**",
+      "!node_modules/ffprobe-static/bin/darwin/**",
       "!node_modules/pdfjs-dist/**",
       "!node_modules/@napi-rs/**",
-      "!node_modules/onnxruntime-node/bin/napi-v6/win32/**",
       "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
       "!node_modules/konva/**",
       "!node_modules/react-konva/**",
       "!node_modules/react-image-crop/**",
@@ -69,7 +67,11 @@
         "to": "resources/",
         "filter": [
           "**/*",
-          "!**/polar.config.example.json"
+          "!**/polar.config.example.json",
+          "!**/*.zip",
+          "!bin/qpdf-macos/**",
+          "!bin/whisper-macos/**",
+          "!mac-natives/**"
         ]
       }
     ],
@@ -79,6 +81,15 @@
       ],
       "icon": "public/icon.ico",
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Convert Everything"
     },
     "mac": {
       "target": [
