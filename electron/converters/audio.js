@@ -127,8 +127,9 @@ class AudioConverter {
         case 'mp3':
           // libmp3lame is included in ffmpeg-static
           outputOpts.push('-c:a', 'libmp3lame');
+          // CBR: -b:a alone. Adding -q:a would switch libmp3lame to VBR and
+          // silently ignore the requested bitrate (320k -> ~190k).
           outputOpts.push('-b:a', audioBitrate);
-          outputOpts.push('-q:a', '2'); // VBR quality
           break;
         case 'aac':
         case 'm4a':

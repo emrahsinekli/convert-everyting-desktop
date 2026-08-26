@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FileDropZone from './components/FileDropZone';
 import ConversionPanel from './components/ConversionPanel';
+import { isLossyAudioFormat } from './utils/audioFormats';
 import ProgressBar from './components/ProgressBar';
 import FormatSelector from './components/FormatSelector';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import DependencyModal from './components/DependencyModal';
+import HelpPanel from './components/HelpPanel';
 import HistoryPanel from './components/HistoryPanel';
 import PDFToolsPanel from './components/PDFToolsPanel';
 import VideoToolsPanel from './components/VideoToolsPanel';
@@ -42,6 +44,7 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [conversionHistory, setConversionHistory] = useState([]);
   const [showDependencyModal, setShowDependencyModal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [dependencies, setDependencies] = useState({});
   const [activeTab, setActiveTab] = useState('convert-video');
   const [allFormats, setAllFormats] = useState({});
@@ -49,6 +52,17 @@ function App() {
   const [installingWhisper, setInstallingWhisper] = useState(false);
   const [whisperInstallStatus, setWhisperInstallStatus] = useState('');
   const [mergePdf, setMergePdf] = useState(true); // Merge multiple images into single PDF
+  const [audioBitrate, setAudioBitrate] = useState(192); // kbps for lossy audio output
+
+  // Conversion settings sent to the main process. Only formats that can honour
+  // a bitrate get one, otherwise the converter would apply it to a lossless file.
+  const buildConversionOptions = useCallback((format) => {
+    const options = {};
+    if (isLossyAudioFormat(format)) {
+      options.bitrate = `${audioBitrate}k`;
+    }
+    return options;
+  }, [audioBitrate]);
   const [errorModal, setErrorModal] = useState({ show: false, message: '', title: 'Error' });
   const [copySuccess, setCopySuccess] = useState(false);
   // valid: app is usable (Pro license OR active free trial)
@@ -220,7 +234,7 @@ function App() {
           inputPath: inputPath,
           outputPath: outputPath,
           outputFormat: selectedFormat,
-          options: {}
+          options: buildConversionOptions(selectedFormat)
         });
         finalOutputPath = result.outputPath || outputPath;
       }
@@ -262,7 +276,7 @@ function App() {
         setProgress(0);
       }, 1500);
     }
-  }, [selectedFiles, selectedFormat, conversionHistory]);
+  }, [selectedFiles, selectedFormat, conversionHistory, buildConversionOptions]);
 
   // Check if all selected files are images
   const allFilesAreImages = useCallback(() => {
@@ -321,7 +335,7 @@ function App() {
           files: selectedFiles.map(f => f.path),
           outputDir: outputDir,
           outputFormat: selectedFormat,
-          options: {}
+          options: buildConversionOptions(selectedFormat)
         });
 
         // Check for failed conversions
@@ -379,7 +393,7 @@ function App() {
         setProgress(0);
       }, 1500);
     }
-  }, [selectedFiles, selectedFormat, conversionHistory, mergePdf, allFilesAreImages]);
+  }, [selectedFiles, selectedFormat, conversionHistory, mergePdf, allFilesAreImages, buildConversionOptions]);
 
   // Copy error to clipboard
   const handleCopyError = useCallback(async () => {
@@ -515,7 +529,13 @@ function App() {
 
   return (
     <div className="app">
-      <Header licenseStatus={licenseStatus} onUpgrade={() => setForcePaywall(true)} />
+      <Header
+        licenseStatus={licenseStatus}
+        onUpgrade={() => setForcePaywall(true)}
+        onHelp={() => setShowHelp(true)}
+      />
+
+      {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
 
       {updateReady && (
         <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '14px 18px', boxShadow: '0 12px 40px rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', gap: 14, maxWidth: 360 }}>
@@ -679,6 +699,8 @@ function App() {
                   progress={progress}
                   mergePdf={mergePdf}
                   onMergePdfChange={setMergePdf}
+                  audioBitrate={audioBitrate}
+                  onAudioBitrateChange={setAudioBitrate}
                   filterType={activeTab.replace('convert-', '')}
                 />
               )}

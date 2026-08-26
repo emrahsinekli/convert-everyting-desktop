@@ -1,5 +1,7 @@
 import React from 'react';
 import FormatSelector from './FormatSelector';
+import { AUDIO_BITRATE_PRESETS, isLossyAudioFormat } from '../utils/audioFormats';
+import { useTranslation } from '../i18n';
 
 function ConversionPanel({
   selectedFiles,
@@ -12,8 +14,11 @@ function ConversionPanel({
   isConverting,
   progress,
   mergePdf,
-  onMergePdfChange
+  onMergePdfChange,
+  audioBitrate,
+  onAudioBitrateChange
 }) {
+  const t = useTranslation();
   const hasMultipleFiles = selectedFiles.length > 1;
 
   // Get input file type
@@ -32,11 +37,15 @@ function ConversionPanel({
   // Show PDF merge option when: multiple files + all images + PDF selected
   const showMergeOption = hasMultipleFiles && allFilesAreImages && selectedFormat === 'pdf';
 
+  // Lossless targets (flac, wav, aiff...) ignore a bitrate, so only offer the
+  // choice when the encoder will actually apply it.
+  const showBitrateOption = isLossyAudioFormat(selectedFormat) && typeof onAudioBitrateChange === 'function';
+
   return (
     <div className="conversion-panel">
       <div className="panel-header">
-        <h2>Select Output Format</h2>
-        <p>Choose the format you want to convert to</p>
+        <h2>{t('conversion.title')}</h2>
+        <p>{t('conversion.subtitle')}</p>
       </div>
 
       <div className="format-sections">
@@ -45,7 +54,7 @@ function ConversionPanel({
           <div className="format-section">
             <h3>
               <span className="section-icon">🎬</span>
-              Video Formats
+              {t('conversion.videoFormats')}
             </h3>
             <FormatSelector
               formats={supportedFormats.video}
@@ -61,7 +70,7 @@ function ConversionPanel({
           <div className="format-section">
             <h3>
               <span className="section-icon">🎵</span>
-              Audio Formats
+              {t('conversion.audioFormats')}
             </h3>
             <FormatSelector
               formats={supportedFormats.audio}
@@ -77,7 +86,7 @@ function ConversionPanel({
           <div className="format-section">
             <h3>
               <span className="section-icon">🖼️</span>
-              Image Formats
+              {t('conversion.imageFormats')}
             </h3>
             <FormatSelector
               formats={supportedFormats.image}
@@ -93,7 +102,7 @@ function ConversionPanel({
           <div className="format-section">
             <h3>
               <span className="section-icon">📄</span>
-              Document Formats
+              {t('conversion.documentFormats')}
             </h3>
             <FormatSelector
               formats={supportedFormats.document}
@@ -109,11 +118,11 @@ function ConversionPanel({
           <div className="format-section transcription-section">
             <h3>
               <span className="section-icon">🎙️</span>
-              AI Transcription
+              {t('conversion.transcription')}
               <span className="ai-badge">AI</span>
             </h3>
             <p className="section-description">
-              Convert speech to text using AI (Whisper)
+              {t('conversion.transcriptionHint')}
             </p>
             <FormatSelector
               formats={supportedFormats.transcription}
@@ -124,6 +133,38 @@ function ConversionPanel({
           </div>
         )}
       </div>
+
+      {/* Audio Bitrate Option */}
+      {showBitrateOption && (
+        <div className="bitrate-option">
+          <div className="bitrate-option-header">
+            <span className="bitrate-option-title">{t('bitrate.title')}</span>
+            <span className="bitrate-option-value">{audioBitrate} {t('bitrate.unit')}</span>
+          </div>
+          <div className="bitrate-option-presets">
+            {AUDIO_BITRATE_PRESETS.map((rate) => (
+              <button
+                key={rate}
+                type="button"
+                className={`bitrate-preset ${audioBitrate === rate ? 'active' : ''}`}
+                onClick={() => onAudioBitrateChange(rate)}
+                disabled={isConverting}
+              >
+                {rate}
+              </button>
+            ))}
+          </div>
+          <p className="bitrate-hint">
+            {audioBitrate >= 320
+              ? t('bitrate.hintHighest')
+              : audioBitrate >= 256
+                ? t('bitrate.hintHigh')
+                : audioBitrate >= 192
+                  ? t('bitrate.hintStandard')
+                  : t('bitrate.hintLow')}
+          </p>
+        </div>
+      )}
 
       {/* PDF Merge Option */}
       {showMergeOption && (
@@ -136,13 +177,13 @@ function ConversionPanel({
             />
             <span className="toggle-switch"></span>
             <span className="toggle-text">
-              {mergePdf ? 'Merge into single PDF' : 'Create separate PDFs'}
+              {mergePdf ? t('conversion.mergeIntoSinglePdf') : t('conversion.createSeparatePdfs')}
             </span>
           </label>
           <p className="merge-hint">
             {mergePdf
-              ? `${selectedFiles.length} images will be merged into a single PDF file (by order)`
-              : `Each image will be saved as a separate PDF file`
+              ? t('conversion.mergeHint', { count: selectedFiles.length })
+              : t('conversion.separateHint')
             }
           </p>
         </div>
@@ -155,7 +196,8 @@ function ConversionPanel({
             <span className="from-format">{inputExt.toUpperCase()}</span>
             <span className="arrow">→</span>
             <span className="to-format">{selectedFormat.toUpperCase()}</span>
-            {showMergeOption && mergePdf && <span className="merge-badge">Merge</span>}
+            {showBitrateOption && <span className="bitrate-badge">{audioBitrate} {t('bitrate.unit')}</span>}
+            {showMergeOption && mergePdf && <span className="merge-badge">{t('conversion.mergeBadge')}</span>}
           </div>
         )}
 
@@ -169,12 +211,12 @@ function ConversionPanel({
               {isConverting ? (
                 <>
                   <span className="spinner"></span>
-                  Converting {progress}%...
+                  {t('conversion.converting', { progress })}
                 </>
               ) : (
                 <>
                   <span className="button-icon">⚡</span>
-                  Convert All ({selectedFiles.length} files)
+                  {t('conversion.convertAll', { count: selectedFiles.length })}
                 </>
               )}
             </button>
@@ -187,12 +229,12 @@ function ConversionPanel({
               {isConverting ? (
                 <>
                   <span className="spinner"></span>
-                  Converting {progress}%...
+                  {t('conversion.converting', { progress })}
                 </>
               ) : (
                 <>
                   <span className="button-icon">⚡</span>
-                  Convert Now
+                  {t('conversion.convertNow')}
                 </>
               )}
             </button>

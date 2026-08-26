@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useTranslation } from '../i18n';
 
 function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
+  const t = useTranslation();
   const [expandedModules, setExpandedModules] = useState({
     convert: true,
     tools: false,
@@ -18,7 +20,7 @@ function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
   const modules = [
     {
       id: 'convert',
-      label: 'Convert',
+      label: t('sidebar.convert'),
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <polyline points="16 3 21 3 21 8" />
@@ -29,35 +31,35 @@ function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
         </svg>
       ),
       items: [
-        { id: 'convert-video', label: 'Video Converter', icon: '🎬' },
-        { id: 'convert-audio', label: 'Audio Converter', icon: '🎵' },
-        { id: 'convert-image', label: 'Image Converter', icon: '🖼️' },
-        { id: 'convert-document', label: 'Document Converter', icon: '📄' },
-        { id: 'convert-ebook', label: 'Ebook Converter', icon: '📚' },
-        { id: 'convert-archive', label: 'Archive Converter', icon: '📦' }
+        { id: 'convert-video', label: t('sidebar.convertVideo'), icon: '🎬' },
+        { id: 'convert-audio', label: t('sidebar.convertAudio'), icon: '🎵' },
+        { id: 'convert-image', label: t('sidebar.convertImage'), icon: '🖼️' },
+        { id: 'convert-document', label: t('sidebar.convertDocument'), icon: '📄' },
+        { id: 'convert-ebook', label: t('sidebar.convertEbook'), icon: '📚' },
+        { id: 'convert-archive', label: t('sidebar.convertArchive'), icon: '📦' }
       ]
     },
     {
       id: 'tools',
-      label: 'Tools',
+      label: t('sidebar.tools'),
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
         </svg>
       ),
       items: [
-        { id: 'tools-video', label: 'Video Tools', icon: '🎬' },
-        { id: 'tools-image', label: 'Image Tools', icon: '🖼️' },
-        { id: 'tools-audio', label: 'Audio Tools', icon: '🎵' },
-        { id: 'tools-gif', label: 'GIF Tools', icon: '🎞️' },
-        { id: 'tools-pdf', label: 'PDF Tools', icon: '📄' },
-        { id: 'tools-tts', label: 'Text to Speech', icon: '🔊' },
-        { id: 'tools-watch', label: 'Automation', icon: '⚡' }
+        { id: 'tools-video', label: t('sidebar.toolsVideo'), icon: '🎬' },
+        { id: 'tools-image', label: t('sidebar.toolsImage'), icon: '🖼️' },
+        { id: 'tools-audio', label: t('sidebar.toolsAudio'), icon: '🎵' },
+        { id: 'tools-gif', label: t('sidebar.toolsGif'), icon: '🎞️' },
+        { id: 'tools-pdf', label: t('sidebar.toolsPdf'), icon: '📄' },
+        { id: 'tools-tts', label: t('sidebar.toolsTts'), icon: '🔊' },
+        { id: 'tools-watch', label: t('sidebar.toolsWatch'), icon: '⚡' }
       ]
     },
     {
       id: 'utilities',
-      label: 'Utilities',
+      label: t('sidebar.utilities'),
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="3" y="3" width="7" height="7" />
@@ -67,18 +69,18 @@ function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
         </svg>
       ),
       items: [
-        { id: 'util-unit', label: 'Unit Converter', icon: '📏' },
-        { id: 'util-color', label: 'Color Converter', icon: '🎨' },
-        { id: 'util-text', label: 'Text Converter', icon: '🔤' },
-        { id: 'util-encoding', label: 'Encoding Tools', icon: '🔐' },
-        { id: 'util-number', label: 'Number Base', icon: '🔢' },
-        { id: 'util-timestamp', label: 'Timestamp', icon: '⏰' },
-        { id: 'util-data', label: 'Data Converter', icon: '📊' },
-        { id: 'util-subtitle', label: 'Subtitle Converter', icon: '💬' },
-        { id: 'util-icon', label: 'Icon Converter', icon: '🖼️' },
-        { id: 'util-markdown', label: 'Markdown Converter', icon: '📝' },
-        { id: 'util-font', label: 'Font Converter', icon: '🔠' },
-        { id: 'util-html', label: 'HTML Beautifier', icon: '🌐' }
+        { id: 'util-unit', label: t('sidebar.utilUnit'), icon: '📏' },
+        { id: 'util-color', label: t('sidebar.utilColor'), icon: '🎨' },
+        { id: 'util-text', label: t('sidebar.utilText'), icon: '🔤' },
+        { id: 'util-encoding', label: t('sidebar.utilEncoding'), icon: '🔐' },
+        { id: 'util-number', label: t('sidebar.utilNumber'), icon: '🔢' },
+        { id: 'util-timestamp', label: t('sidebar.utilTimestamp'), icon: '⏰' },
+        { id: 'util-data', label: t('sidebar.utilData'), icon: '📊' },
+        { id: 'util-subtitle', label: t('sidebar.utilSubtitle'), icon: '💬' },
+        { id: 'util-icon', label: t('sidebar.utilIcon'), icon: '🖼️' },
+        { id: 'util-markdown', label: t('sidebar.utilMarkdown'), icon: '📝' },
+        { id: 'util-font', label: t('sidebar.utilFont'), icon: '🔠' },
+        { id: 'util-html', label: t('sidebar.utilHtml'), icon: '🌐' }
       ]
     }
   ];
@@ -86,7 +88,7 @@ function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
   const otherItems = [
     {
       id: 'history',
-      label: 'History',
+      label: t('sidebar.history'),
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" />
@@ -159,7 +161,7 @@ function Sidebar({ activeTab, onTabChange, onDependencyClick }) {
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
-          <span>Settings</span>
+          <span>{t('sidebar.settings')}</span>
         </button>
       </div>
     </aside>

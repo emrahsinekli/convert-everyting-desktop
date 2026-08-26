@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from '../i18n';
 
 function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtensions }) {
+  const t = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [thumbnails, setThumbnails] = useState({});
@@ -227,8 +229,8 @@ function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtens
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
             </div>
-            <h3>Drag files here</h3>
-            <p>or click to select</p>
+            <h3>{t('dropzone.dragFilesHere')}</h3>
+            <p>{t('dropzone.orClickToSelect')}</p>
           </div>
         </div>
       ) : (
@@ -244,10 +246,10 @@ function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtens
             <div className="header-left">
               <h3>
                 <span className="file-count">{selectedFiles.length}</span>
-                files selected
+                {t('dropzone.filesSelected')}
               </h3>
               {selectedFiles.length > 1 && (
-                <span className="reorder-hint">Drag to reorder</span>
+                <span className="reorder-hint">{t('dropzone.dragToReorder')}</span>
               )}
             </div>
             <div className="header-actions">
@@ -256,7 +258,7 @@ function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtens
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                Add More
+                {t('dropzone.addMore')}
               </button>
               <button className="clear-all-btn" onClick={handleClearAll} disabled={disabled}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -313,7 +315,7 @@ function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtens
                 <button
                   className="remove-file-btn"
                   onClick={(e) => handleRemoveFile(e, index)}
-                  title="Remove file"
+                  title={t('dropzone.removeFile')}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -322,7 +324,7 @@ function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtens
                 </button>
 
                 {/* Drag Handle */}
-                <div className="drag-handle" title="Drag to reorder">
+                <div className="drag-handle" title={t('dropzone.dragToReorder')}>
                   <svg viewBox="0 0 24 24" fill="currentColor">
                     <circle cx="9" cy="6" r="1.5" />
                     <circle cx="15" cy="6" r="1.5" />
@@ -343,7 +345,7 @@ function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtens
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
               </div>
-              <span>Add File</span>
+              <span>{t('dropzone.addFile')}</span>
             </div>
           </div>
 
@@ -355,7 +357,7 @@ function FileDropZone({ onFilesSelected, selectedFiles, disabled, acceptedExtens
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              <span>Drop files here</span>
+              <span>{t('dropzone.dropFilesHere')}</span>
             </div>
           )}
         </div>

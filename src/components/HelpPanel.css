@@ -1,0 +1,130 @@
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 40px 20px;
+}
+
+.help-modal {
+  width: 100%;
+  max-width: 720px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card, #1c1c1e);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.help-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.help-header h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.help-header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary, #98989d);
+  max-width: 52ch;
+}
+
+.help-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #98989d);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.15s ease;
+}
+
+.help-close:hover { color: #fff; }
+
+.help-search {
+  margin: 16px 24px 4px;
+  padding: 10px 12px;
+  background: var(--bg-input, #2c2c2e);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+
+.help-search:focus { border-color: var(--primary, #5e5ce6); }
+
+.help-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 24px 24px;
+}
+
+.help-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--text-secondary, #98989d);
+  font-size: 13px;
+}
+
+.help-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.help-section:last-child { border-bottom: none; }
+
+.help-section-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.help-section-icon { font-size: 16px; }
+.help-section-title { flex: 1; }
+
+.help-section-chevron {
+  color: var(--text-secondary, #98989d);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.help-section-body {
+  padding: 0 0 16px 28px;
+}
+
+.help-section-body p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary, #98989d);
+  white-space: pre-line;
+}
+
+.help-section-body p:last-child { margin-bottom: 0; }

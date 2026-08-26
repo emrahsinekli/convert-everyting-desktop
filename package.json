@@ -1,6 +1,6 @@
 {
   "name": "convert-everything",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "Convert Everything to Everything - Universal File Converter",
   "main": "electron/main.js",
   "scripts": {
@@ -10,7 +10,8 @@
     "build": "react-scripts build",
     "electron-build": "npm run build && electron-builder",
     "release": "npm run build && electron-builder --mac --arm64 --publish always",
-    "postinstall": "electron-builder install-app-deps && node scripts/setup-mac-natives.js"
+    "postinstall": "electron-builder install-app-deps && node scripts/setup-mac-natives.js",
+    "check-locales": "node scripts/check-locales.js"
   },
   "author": "Emrah Sinekli <emrahsinekli@gmail.com>",
   "build": {
@@ -92,9 +93,7 @@
       "gatekeeperAssess": false,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
-      "notarize": {
-        "teamId": "75CRHC6QNK"
-      }
+      "notarize": true
     },
     "linux": {
       "target": [

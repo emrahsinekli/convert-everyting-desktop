@@ -129,7 +129,9 @@ ipcMain.handle('license:check', async () => {
   }
   // Periodically verify online against Polar
   try {
-    const onlineResult = await licenseManager.verifyLicenseOnline(localResult.key, localResult.activationId);
+    const onlineResult = await licenseManager.verifyLicenseOnline(
+      localResult.key, localResult.activationId, localResult.organizationId
+    );
     if (!onlineResult.valid && !onlineResult.offline) {
       // License revoked, deactivated or moved - remove local
       licenseManager.removeLicense();
@@ -1386,11 +1388,15 @@ async function performConversion(inputPath, outputPath, outputFormat, options, s
 // Conversion handlers
 ipcMain.handle('convert:start', async (event, params) => {
   try {
-    const { inputPath, outputPath, outputFormat, type, sizes, ...restOptions } = params;
+    const { inputPath, outputPath, outputFormat, type, sizes, options: nestedOptions, ...restOptions } = params;
 
-    // Build options object including type-specific parameters
+    // Build options object including type-specific parameters.
+    // The renderer sends conversion settings under `options`; without unwrapping
+    // it here they end up nested as options.options and every converter reads
+    // undefined (this is why the audio bitrate never arrived).
     const options = {
       ...restOptions,
+      ...(nestedOptions || {}),
       ...(sizes && { sizes })
     };
 

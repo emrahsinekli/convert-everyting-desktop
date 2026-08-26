@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from '../i18n';
 
 function HistoryPanel({ history, onClearHistory }) {
+  const t = useTranslation();
   const formatDate = (isoString) => {
     const date = new Date(isoString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
@@ -15,10 +17,10 @@ function HistoryPanel({ history, onClearHistory }) {
   return (
     <div className="history-panel">
       <div className="panel-header">
-        <h2>Conversion History</h2>
+        <h2>{t('history.title')}</h2>
         {history.length > 0 && (
           <button className="clear-history-button" onClick={onClearHistory}>
-            Clear History
+            {t('history.clear')}
           </button>
         )}
       </div>
@@ -31,8 +33,8 @@ function HistoryPanel({ history, onClearHistory }) {
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </div>
-          <h3>No conversion history yet</h3>
-          <p>Your converted files will appear here</p>
+          <h3>{t('history.emptyTitle')}</h3>
+          <p>{t('history.emptyHint')}</p>
         </div>
       ) : (
         <div className="history-list">
