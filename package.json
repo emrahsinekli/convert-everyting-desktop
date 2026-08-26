@@ -9,7 +9,7 @@
     "electron-start": "node run-electron.js",
     "build": "react-scripts build",
     "electron-build": "npm run build && electron-builder",
-    "release": "npm run build && electron-builder --mac --arm64 --publish always",
+    "release": "npm run build && electron-builder --mac --arm64 --x64 --publish always",
     "postinstall": "electron-builder install-app-deps && node scripts/setup-mac-natives.js",
     "check-locales": "node scripts/check-locales.js"
   },
